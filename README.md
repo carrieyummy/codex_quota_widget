@@ -277,7 +277,7 @@ codex_quota_widget/
 
 ## 📄 开源协议
 
-MIT License
+GNU Affero General Public License v3.0 (AGPL-3.0)
 
 ---
 
@@ -548,4 +548,4 @@ Support: 1218615410@qq.com
 
 ## 📄 License
 
-MIT License
+GNU Affero General Public License v3.0 (AGPL-3.0)
