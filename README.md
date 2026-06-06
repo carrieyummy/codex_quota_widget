@@ -15,7 +15,7 @@
 <p align="center">
   <a href="#中文说明">中文</a> ·
   <a href="#english">English</a> ·
-  <a href="https://github.com/carrieyummy/codex-led-widget/releases">Download</a>
+  <a href="https://github.com/carrieyummy/codex_quota_widget/releases">Download</a>
 </p>
 
 ---
@@ -105,9 +105,9 @@ Codex LED Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 Co
 
 请前往 **Releases** 页面下载最新版 Windows `.exe` 文件：
 
-👉 [前往 Releases 下载](https://github.com/carrieyummy/codex-led-widget/releases)
+👉 [前往 Releases 下载](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-当前版本：`v0.1.1`
+当前版本：`v1.0.0`
 
 ---
 
@@ -121,7 +121,7 @@ Codex LED Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 Co
 
 ## 📦 使用方法
 
-1. 打开 [Releases](https://github.com/carrieyummy/codex-led-widget/releases) 页面。
+1. 打开 [Releases](https://github.com/carrieyummy/codex_quota_widget/releases) 页面。
 2. 下载最新版本的 `.exe` 文件。
 3. 确保电脑上已经安装并登录 Codex。
 4. 双击运行 `.exe`。
@@ -185,8 +185,8 @@ Codex LED Widget 设计目标是本地化、轻量、隐私友好。
 克隆仓库：
 
 ```bash
-git clone https://github.com/xicunwus2025-sys/codex-led-widget.git
-cd codex-led-widget
+git clone https://github.com/carrieyummy/codex_quota_widget.git
+cd codex_quota_widget
 ```
 
 安装依赖：
@@ -220,7 +220,7 @@ npm run build
 ## 📁 项目结构
 
 ```txt
-codex-led-widget/
+codex_quota_widget/
 ├─ assets/              # 截图和图片资源
 ├─ src/
 │  ├─ main/             # Electron 主进程和额度读取逻辑
@@ -377,9 +377,9 @@ It uses a transparent liquid-glass interface and a simple red / yellow / green L
 
 Download the latest Windows `.exe` from the **Releases** page:
 
-👉 [Download from Releases](https://github.com/carrieyummy/codex-led-widget/releases)
+👉 [Download from Releases](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-Current version: `v0.1.1`
+Current version: `v1.0.0`
 
 ---
 
@@ -393,7 +393,7 @@ Current version: `v0.1.1`
 
 ## 📦 How to Use
 
-1. Go to the [Releases](https://github.com/carrieyummy/codex-led-widget/releases) page.
+1. Go to the [Releases](https://github.com/carrieyummy/codex_quota_widget/releases) page.
 2. Download the latest `.exe` file.
 3. Make sure Codex is installed and signed in on your computer.
 4. Double-click the `.exe` to run the widget.
@@ -456,8 +456,8 @@ Codex LED Widget is designed to be local, lightweight, and privacy-friendly.
 Clone the repository:
 
 ```bash
-git clone https://github.com/xicunwus2025-sys/codex-led-widget.git
-cd codex-led-widget
+git clone https://github.com/carrieyummy/codex_quota_widget.git
+cd codex_quota_widget
 ```
 
 Install dependencies:
@@ -491,7 +491,7 @@ The output file will be generated in the `dist` folder.
 ## 📁 Project Structure
 
 ```txt
-codex-led-widget/
+codex_quota_widget/
 ├─ assets/              # Screenshots and images
 ├─ src/
 │  ├─ main/             # Electron main process and quota reader
