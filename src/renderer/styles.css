@@ -1,0 +1,624 @@
+* {
+  /* 统一盒模型，手动调整 width、padding、border 时更容易估算实际尺寸。 */
+  box-sizing: border-box;
+}
+
+/* 全局主题变量：JS 会动态改 --glass-rgb、--glass-alpha、--text、--muted。
+   手动换主题时优先改这里；运行时调色盘会覆盖部分变量。 */
+:root {
+  /* 当前状态的强调色：正常绿色；warning/danger 会被 body[data-state] 覆盖。 */
+  --accent: #55e6a5;
+  /* 强调色弱光晕，用在状态圆点外圈和背景光斑。 */
+  --accent-soft: rgba(85, 230, 165, 0.32);
+  /* 预留的更强强调色。 */
+  --accent-strong: #29d88b;
+  /* 危险/警告基础色，方便后续统一引用。 */
+  --danger: #ff5f72;
+  --warning: #ffd166;
+  /* 毛玻璃背景 RGB；调色盘实际改的是这个变量。 */
+  --glass-rgb: 10, 47, 53;
+  /* 毛玻璃背景透明度；越大越不透明。 */
+  --glass-alpha: 0.72;
+  /* 背景渐变较实的一端，比 --glass-alpha 略高。 */
+  --glass-alpha-strong: 0.84;
+  /* 组合后的常用玻璃色。 */
+  --glass: rgba(var(--glass-rgb), var(--glass-alpha));
+  /* 轻描边/分隔用浅色。 */
+  --glass-light: rgba(180, 235, 226, 0.18);
+  /* 主文字色。 */
+  --text: rgba(219, 245, 241, 0.94);
+  /* 次级文字色，例如更新时间、说明文字。 */
+  --muted: rgba(190, 224, 218, 0.72);
+}
+
+html,
+body {
+  /* 必须填满 Electron BrowserWindow，否则拖拽和贴边收起后的布局会错位。 */
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  /* 隐藏窗口外溢内容；贴边圆点光晕由 .dock-strip 单独允许溢出。 */
+  overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  /* 中英文混排字体；贴边条也继承这里，避免不同字体造成基线高低不一致。 */
+  font-family:
+    "Segoe UI",
+    "Microsoft YaHei",
+    system-ui,
+    sans-serif;
+  /* 不要改成负值，容易让小尺寸贴边条字符挤压重叠。 */
+  letter-spacing: 0;
+  user-select: none;
+}
+
+/* 危险/错误状态：改变强调色，圆点和背景光斑会跟着变红。 */
+body[data-state="danger"],
+body[data-state="error"] {
+  --accent: #ff667a;
+  --accent-soft: rgba(255, 102, 122, 0.36);
+  --accent-strong: #ff4d66;
+}
+
+/* 警告状态：改变强调色，圆点和背景光斑会跟着变黄。 */
+body[data-state="warning"] {
+  --accent: #ffd166;
+  --accent-soft: rgba(255, 209, 102, 0.34);
+  --accent-strong: #ffc247;
+}
+
+/* 主窗口外观：完整窗口和贴边收起窗口共用这个容器。 */
+.widget {
+  position: relative;
+  /* 跟随当前 Electron BrowserWindow 尺寸。 */
+  width: 100vw;
+  height: 100vh;
+  /* 完整窗口内边距；贴边收起时由 body[data-edge-dock="docked"] 覆盖。 */
+  padding: 10px;
+  /* 外边框和圆角；向上贴边收起时会覆盖顶部圆角。 */
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 18px;
+  /* 三层背景：左上高光、右下状态色光斑、主体玻璃渐变。 */
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.12), transparent 32%),
+    radial-gradient(circle at 90% 80%, var(--accent-soft), transparent 34%),
+    linear-gradient(135deg, rgba(var(--glass-rgb), var(--glass-alpha-strong)), rgba(var(--glass-rgb), var(--glass-alpha)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  /* 毛玻璃强度；数值越大越模糊，但性能开销也越高。 */
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  /* 整个窗口默认可拖拽；按钮、面板和贴边条会单独设为 no-drag。 */
+  -webkit-app-region: drag;
+}
+
+/* 内部高光描边：只负责视觉边框，不参与布局和交互。 */
+.widget::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 17px;
+  pointer-events: none;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), transparent 40%, rgba(255, 255, 255, 0.08));
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  padding: 1px;
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+/* 自定义调整高度的透明拖拽热区。当前窗口宽度固定，所以横向和角落热区隐藏。 */
+.resize-handle {
+  position: absolute;
+  z-index: 10;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+
+.resize-n,
+.resize-s {
+  /* 顶部/底部 8px 高度拖拽区；太大容易影响内容点击。 */
+  left: 10px;
+  right: 10px;
+  height: 8px;
+}
+
+.resize-e,
+.resize-w {
+  /* 宽度固定，所以左右 resize 热区关闭。 */
+  top: 10px;
+  bottom: 10px;
+  width: 8px;
+  display: none;
+}
+
+.resize-n {
+  top: 0;
+  cursor: ns-resize;
+}
+
+.resize-e {
+  right: 0;
+  cursor: ew-resize;
+}
+
+.resize-s {
+  bottom: 0;
+  cursor: ns-resize;
+}
+
+.resize-w {
+  left: 0;
+  cursor: ew-resize;
+}
+
+.resize-ne,
+.resize-se,
+.resize-sw,
+.resize-nw {
+  /* 角落 resize 同样关闭。 */
+  width: 14px;
+  height: 14px;
+  display: none;
+}
+
+.resize-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.resize-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.resize-sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+/* 背景装饰光斑：只作为视觉效果，不参与交互。 */
+.ambient {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(9px);
+  opacity: 0.76;
+}
+
+.ambient-a {
+  /* 左上偏暖光斑。 */
+  width: 55px;
+  height: 43px;
+  left: 11px;
+  top: 11px;
+  background: radial-gradient(circle, rgba(255, 104, 132, 0.36), transparent 70%);
+}
+
+.ambient-b {
+  /* 右下跟随状态色的光斑。 */
+  width: 66px;
+  height: 48px;
+  right: 5px;
+  bottom: 4px;
+  background: radial-gradient(circle, var(--accent-soft), transparent 72%);
+}
+
+/* 顶部栏：左侧品牌/状态，右侧按钮组。完整窗口显示，贴边收起时隐藏。 */
+.titlebar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  height: 28px;
+}
+
+.brand {
+  /* min-width: 0 允许内部文字在窄窗口下正确截断。 */
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+}
+
+/* 状态圆点：完整窗口和贴边收起条都复用这个类，收起态会单独覆盖尺寸。 */
+.traffic-light {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 0 18px var(--accent);
+}
+
+.traffic-light {
+  /* 完整窗口圆点大小。贴边收起见 body[data-edge-dock="docked"] .traffic-light。 */
+  width: 14px;
+  height: 14px;
+}
+
+/* loading 态用灰色，避免读取中显示成正常绿色。 */
+.traffic-light.loading {
+  background: #9ca8b8;
+  box-shadow:
+    0 0 0 5px rgba(156, 168, 184, 0.18),
+    0 0 14px rgba(156, 168, 184, 0.58);
+}
+
+/* 标题文本：品牌名称。 */
+.brand-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+/* 标题下方状态文字，例如“已更新 · 15:22”。 */
+.brand-state {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* 右侧按钮组：必须 no-drag，否则点击按钮会被系统当成拖窗口。 */
+.window-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  height: 20px;
+  -webkit-app-region: no-drag;
+}
+
+/* 所有按钮的基础样式。 */
+button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.icon-button {
+  /* 图标按钮固定正方形，避免不同图标改变按钮宽度。 */
+  width: 20px;
+}
+
+.text-button {
+  /* 语言按钮 EN/中 需要比图标按钮稍宽。 */
+  min-width: 26px;
+  padding: 0 5px;
+  font-weight: 800;
+}
+
+.icon-button svg {
+  /* SVG 统一线宽和尺寸，保持按钮风格一致。 */
+  display: block;
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+/* active 用于置顶按钮和贴边收起开关。 */
+.icon-button.active {
+  border-color: color-mix(in srgb, var(--accent) 58%, white 0%);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* 旧的 danger 按钮样式保留：当前退出按钮已改为隐藏窗口，暂无 danger 按钮使用。 */
+.icon-button.danger:hover {
+  border-color: rgba(255, 95, 114, 0.55);
+  color: #ffdbe0;
+  background: rgba(255, 95, 114, 0.22);
+}
+
+/* 贴边收起条：仅在 body[data-edge-dock="docked"] 时显示。
+   用 flex 而不是 grid，避免固定列宽造成“Codex:”和百分比之间间距过大。 */
+.dock-strip {
+  position: relative;
+  z-index: 2;
+  display: none;
+  width: 100%;
+  height: 100%;
+  color: var(--text);
+  cursor: pointer;
+  /* 必须 visible：状态圆点的 box-shadow 光晕会超出自身盒子，hidden 会裁切圆点外圈。 */
+  overflow: visible;
+  -webkit-app-region: no-drag;
+}
+
+/* 键盘聚焦贴边条时的可见焦点。 */
+.dock-strip:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 贴边条里的模型名称，例如 Codex:、GPT-5.3 Spark。 */
+.dock-label {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 贴边条里的百分比数字。继承全局字体，避免和标签文字基线不一致。 */
+.dock-percent {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* 贴边条里的 5 小时重置时间，显示为 HH:mm，放在 5 小时百分比右侧。 */
+.dock-reset {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* 贴边条里的更新时间，仅显示 HH:mm。 */
+.dock-time {
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 贴边条中 Codex 和 Spark 之间的竖线分隔。 */
+.dock-separator {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+/* 贴边收起态的窗口内边距。
+   四个值依次是 top/right/bottom/left；调左侧圆点位置优先改最后一个值。 */
+body[data-edge-dock="docked"] .widget {
+  padding: 6px 4px 6px 11px;
+}
+
+/* 贴边收起时只显示 .dock-strip，隐藏完整窗口内容和调整高度热区。 */
+body[data-edge-dock="docked"] .titlebar,
+body[data-edge-dock="docked"] .content,
+body[data-edge-dock="docked"] .theme-overlay,
+body[data-edge-dock="docked"] .theme-panel,
+body[data-edge-dock="docked"] .resize-handle {
+  display: none;
+}
+
+/* 贴边收起时降低背景光斑存在感，避免小条过花。 */
+body[data-edge-dock="docked"] .ambient {
+  opacity: 0.46;
+}
+
+/* 贴边收起条布局。
+   gap 控制每段文字之间的间距；如果觉得百分比太挤/太松，优先调这里。 */
+body[data-edge-dock="docked"] .dock-strip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  cursor: move;
+  -webkit-app-region: drag;
+}
+
+/* Codex-only 窄贴边条：当主进程把贴边窗口缩窄时，隐藏 Spark 相关内容。
+   max-width 要大于 main.js 里的 dockCodexOnlyWidth，并小于 dockFullWidth。 */
+@media (max-width: 260px) {
+  body[data-edge-dock="docked"] .dock-separator,
+  body[data-edge-dock="docked"] .dock-spark-label,
+  body[data-edge-dock="docked"] .dock-spark-value {
+    display: none;
+  }
+}
+
+/* 贴边收起态圆点：完整窗口圆点太大，所以这里单独缩小。
+   width/height 控制圆点本体，margin-left 控制离左边的距离；box-shadow 第一层控制外圈，第二层控制发光。 */
+body[data-edge-dock="docked"] .traffic-light {
+  width: 8px;
+  height: 8px;
+  margin-left: 2px;
+  margin-right: 2px;
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 0 9px var(--accent);
+}
+
+/* 吸附到屏幕上边：顶部贴边，所以只保留下方圆角。 */
+body[data-dock-edge="top"] .widget {
+  border-radius: 0 0 14px 14px;
+}
+
+body[data-dock-edge="top"] .widget::before {
+  border-radius: 0 0 13px 13px;
+}
+
+/* 调色盘遮罩：透明层用于点击外部关闭主题面板。 */
+.theme-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+
+/* 调色盘面板：用于背景色、文字色、透明度。 */
+.theme-panel {
+  position: absolute;
+  z-index: 4;
+  top: 38px;
+  right: 12px;
+  width: 176px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(var(--glass-rgb), 0.86);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-app-region: no-drag;
+}
+
+.theme-field {
+  /* 左侧标签固定 52px，右侧控件自适应。 */
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.theme-field + .theme-field {
+  margin-top: 8px;
+}
+
+.theme-field input[type="color"] {
+  /* 颜色选择器高度。若面板显得拥挤，可调 height。 */
+  width: 100%;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.theme-field input[type="range"] {
+  /* 透明度滑块颜色跟随状态强调色。 */
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 额度列表容器：完整窗口内容区域。 */
+.content {
+  position: relative;
+  z-index: 2;
+  margin-top: 6px;
+  max-height: calc(100vh - 48px);
+  /* 内容多时允许内部滚动，但隐藏滚动条以保持小组件简洁。 */
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.content::-webkit-scrollbar {
+  display: none;
+}
+
+.quota-list {
+  /* 每个模型限额组之间的垂直间距。 */
+  display: grid;
+  gap: 4px;
+}
+
+.quota-group {
+  /* 组内标题和两行限额之间的间距。 */
+  display: grid;
+  gap: 1px;
+}
+
+.quota-group h2 {
+  /* 模型标题，例如 Codex 限额。 */
+  margin: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.quota-row {
+  /* 两列布局：左侧限额名称，右侧百分比/重置时间。 */
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  min-height: 14px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.quota-label {
+  /* 左侧标签，例如 5 小时限额。 */
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.quota-value {
+  /* 右侧值。使用等宽字体便于百分比和时间对齐。 */
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-family: Consolas, "SFMono-Regular", "Microsoft YaHei UI", monospace;
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 高度小于 118px 时隐藏非 Codex 的次级模型，避免内容溢出。 */
+@media (max-height: 118px) {
+  .quota-group.secondary-limit {
+    display: none;
+  }
+}
+
+/* 高度小于 96px 时进一步隐藏 Codex 的 7 天额度。 */
+@media (max-height: 96px) {
+  .quota-group[data-limit-id="codex"] .quota-row.secondary {
+    display: none;
+  }
+}

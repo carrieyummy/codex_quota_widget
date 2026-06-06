@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex LED Widget</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-state="loading">
+    <main class="widget">
+      <div class="ambient ambient-a"></div>
+      <div class="ambient ambient-b"></div>
+      <div class="resize-handle resize-n" data-edge="n"></div>
+      <div class="resize-handle resize-e" data-edge="e"></div>
+      <div class="resize-handle resize-s" data-edge="s"></div>
+      <div class="resize-handle resize-w" data-edge="w"></div>
+      <div class="resize-handle resize-ne" data-edge="ne"></div>
+      <div class="resize-handle resize-se" data-edge="se"></div>
+      <div class="resize-handle resize-sw" data-edge="sw"></div>
+      <div class="resize-handle resize-nw" data-edge="nw"></div>
+
+      <header class="titlebar">
+        <div class="brand">
+          <span id="trafficLight" class="traffic-light loading" aria-hidden="true"></span>
+          <div>
+            <span id="brandName" class="brand-name">Codex 额度</span>
+            <span id="stateText" class="brand-state">读取中</span>
+          </div>
+        </div>
+        <div class="window-actions">
+          <button id="paletteBtn" class="icon-button" title="调色盘" aria-label="调色盘">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 22a10 10 0 1 1 10-10c0 1.7-1 2.8-2.7 2.8h-1.7c-.9 0-1.6.7-1.6 1.6 0 .4.1.7.3 1 .7 1.1-.1 2.6-1.5 2.6H12z" />
+              <circle cx="7.5" cy="10.5" r="1" />
+              <circle cx="10.5" cy="7.5" r="1" />
+              <circle cx="14.5" cy="7.5" r="1" />
+              <circle cx="16.5" cy="11" r="1" />
+            </svg>
+          </button>
+          <button id="langBtn" class="text-button" title="Language" aria-label="Language">EN</button>
+          <button id="pinBtn" class="icon-button active" title="取消置顶" aria-label="取消置顶">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 4l6 6-3 1-4 4v4l-2 2-2-6-6-2 2-2h4l4-4 1-3z" />
+            </svg>
+          </button>
+          <button id="refreshBtn" class="icon-button" title="刷新" aria-label="刷新">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 12a8 8 0 0 1-13.7 5.7M4 12A8 8 0 0 1 17.7 6.3M17 3v4h-4M7 21v-4h4" />
+            </svg>
+          </button>
+          <button id="minimizeBtn" class="icon-button" title="贴边收起" aria-label="贴边收起">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5h4v14H4M13 7h7M13 12h7M13 17h7" />
+            </svg>
+          </button>
+          <button id="closeBtn" class="icon-button" title="隐藏" aria-label="隐藏">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <section id="dockStrip" class="dock-strip" role="button" tabindex="0" aria-label="恢复窗口">
+        <span id="dockTrafficLight" class="traffic-light loading" aria-hidden="true"></span>
+        <span id="dockUpdatedAt" class="dock-time">--:--</span>
+        <span class="dock-label dock-codex-label">Codex:</span>
+        <span id="dockCodexPrimary" class="dock-percent">--</span>
+        <span id="dockCodexPrimaryReset" class="dock-reset">--:--</span>
+        <span id="dockCodexSecondary" class="dock-percent">--</span>
+        <span class="dock-separator" aria-hidden="true">|</span>
+        <span class="dock-label dock-spark-label">GPT-5.3 Spark:</span>
+        <span id="dockSparkPrimary" class="dock-percent dock-spark-value">--</span>
+        <span id="dockSparkPrimaryReset" class="dock-reset dock-spark-value">--:--</span>
+        <span id="dockSparkSecondary" class="dock-percent dock-spark-value">--</span>
+      </section>
+
+      <div id="themeOverlay" class="theme-overlay" hidden></div>
+
+      <section id="themePanel" class="theme-panel" hidden>
+        <label class="theme-field">
+          <span id="bgColorLabel">背景色</span>
+          <input id="bgColorInput" type="color" value="#0a2f35" />
+        </label>
+        <label class="theme-field">
+          <span id="textColorLabel">字体色</span>
+          <input id="textColorInput" type="color" value="#dbf5f1" />
+        </label>
+        <label class="theme-field">
+          <span id="opacityLabel">透明度</span>
+          <input id="opacityInput" type="range" min="35" max="95" value="72" />
+        </label>
+      </section>
+
+      <section class="content">
+        <div id="quotaList" class="quota-list" aria-label="Codex 限额列表"></div>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
