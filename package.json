@@ -1,6 +1,6 @@
 {
   "name": "codex-quota-widget",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Windows desktop LED widget for showing local Codex usage quota.",
   "main": "src/main/main.js",
   "author": "Codex Quota Widget Contributors",
@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "electron .",
     "start": "electron .",
-    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win portable",
+    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win nsis",
+    "build:portable": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win portable",
     "build:dir": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --dir"
   },
   "build": {
@@ -25,15 +26,25 @@
     ],
     "win": {
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "deleteAppDataOnUninstall": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "Codex-Quota-Widget-Setup-${version}-win-x64.exe",
+      "uninstallDisplayName": "Codex Quota Widget"
     },
     "portable": {
       "artifactName": "Codex-Quota-Widget-${version}-win-x64.exe"
