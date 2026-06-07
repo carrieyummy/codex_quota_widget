@@ -41,6 +41,7 @@
   --dock-padding: 3px 5px 3px 5px;
   /* 贴边缩略条内各段文字和状态圆点之间的默认间距。 */
   --dock-content-gap: 3px;
+  --window-bottom-gap: 1px;
   /* 贴边状态下圆点自身左右外边距；通常只做微调，主位置优先改 --dock-padding。 */
   --dock-light-margin-left: 0px;
   --dock-light-margin-right: 0px;
@@ -88,7 +89,7 @@ body[data-state="warning"] {
   position: relative;
   /* 跟随当前 Electron BrowserWindow 尺寸。 */
   width: 100vw;
-  height: 100vh;
+  height: calc(var(--widget-height, 100vh) - var(--window-bottom-gap));
   /* 完整窗口内边距；贴边收起时由 body[data-edge-dock="docked"] 覆盖。 */
   padding: 5px 5px 5px 10px;
   /* 外边框和圆角；向上贴边收起时会覆盖顶部圆角。 */
@@ -113,6 +114,7 @@ body[data-state="warning"] {
 .widget::before {
   content: "";
   position: absolute;
+  z-index: 30;
   inset: 1px;
   border-radius: var(--window-inner-radius);
   pointer-events: none;
@@ -127,7 +129,7 @@ body[data-state="warning"] {
 /* 自定义调整窗口宽高的透明拖拽热区。 */
 .resize-handle {
   position: absolute;
-  z-index: 10;
+  z-index: 40;
   background: transparent;
   -webkit-app-region: no-drag;
 }
@@ -319,6 +321,15 @@ button:hover {
   background: rgba(255, 255, 255, 0.16);
 }
 
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 72%, white 0%);
+  outline-offset: 1px;
+}
+
 .icon-button {
   /* 图标按钮固定正方形，避免不同图标改变按钮宽度。 */
   width: 20px;
@@ -348,6 +359,14 @@ button:hover {
   border-color: color-mix(in srgb, var(--accent) 58%, white 0%);
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+#paletteBtn.active {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+body[data-theme-panel="open"] .widget::before {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), transparent 42%, rgba(255, 255, 255, 0.05));
 }
 
 /* 旧的 danger 按钮样式保留：当前退出按钮已改为隐藏窗口，暂无 danger 按钮使用。 */
@@ -435,6 +454,7 @@ button:hover {
 /* 贴边收起态的窗口内边距。
    四个值依次是 top/right/bottom/left；调左侧圆点位置优先改最后一个值。 */
 body[data-edge-dock="docked"] .widget {
+  --window-bottom-gap: 0px;
   padding: var(--dock-padding);
 }
 
@@ -494,7 +514,7 @@ body[data-dock-edge="top"] .widget::before {
 
 /* 调色盘遮罩：透明层用于点击外部关闭主题面板。 */
 .theme-overlay {
-  position: absolute;
+  position: fixed;
   z-index: 3;
   inset: 0;
   background: transparent;
@@ -505,15 +525,18 @@ body[data-dock-edge="top"] .widget::before {
 .theme-panel {
   position: absolute;
   z-index: 4;
-  top: 38px;
-  right: 12px;
-  width: 176px;
-  padding: 10px;
+  top: var(--theme-panel-top, 34px);
+  left: var(--theme-panel-left, 8px);
+  width: min(170px, calc(100vw - 16px));
+  padding: 7px;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 12px;
-  background: rgba(var(--glass-rgb), 0.86);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.12), transparent 32%),
+    radial-gradient(circle at 90% 80%, var(--accent-soft), transparent 34%),
+    linear-gradient(135deg, rgba(var(--glass-rgb), var(--glass-alpha-strong)), rgba(var(--glass-rgb), var(--glass-alpha)));
   box-shadow:
-    0 14px 32px rgba(0, 0, 0, 0.22),
+    0 10px 22px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
@@ -523,25 +546,26 @@ body[data-dock-edge="top"] .widget::before {
 .theme-field {
   /* 左侧标签固定 52px，右侧控件自适应。 */
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-columns: 46px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
+  line-height: 1.1;
 }
 
 .theme-field + .theme-field {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .theme-field input[type="color"] {
   /* 颜色选择器高度。若面板显得拥挤，可调 height。 */
   width: 100%;
-  height: 24px;
+  height: 20px;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 8px;
+  border-radius: 5px;
   background: transparent;
   cursor: pointer;
 }
@@ -549,6 +573,7 @@ body[data-dock-edge="top"] .widget::before {
 .theme-field input[type="range"] {
   /* 透明度滑块颜色跟随状态强调色。 */
   width: 100%;
+  height: 18px;
   accent-color: var(--accent);
   cursor: pointer;
 }
@@ -558,7 +583,7 @@ body[data-dock-edge="top"] .widget::before {
   position: relative;
   z-index: 2;
   margin-top: 6px;
-  max-height: calc(100vh - 40px);
+  max-height: calc(var(--widget-height, 100vh) - 40px);
   /* 内容多时允许内部滚动，但隐藏滚动条以保持小组件简洁。 */
   overflow: auto;
   scrollbar-width: none;

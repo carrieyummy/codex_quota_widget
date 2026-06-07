@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("codexQuota", {
   getWindowLimits: () => ipcRenderer.invoke("window:limits:get"),
   getWindowBounds: () => ipcRenderer.invoke("window:bounds:get"),
   setWindowBounds: (bounds) => ipcRenderer.invoke("window:bounds:set", bounds),
+  setThemePanelOpen: (value) => ipcRenderer.invoke("window:themePanel:setOpen", value),
   getAlwaysOnTop: () => ipcRenderer.invoke("window:alwaysOnTop:get"),
   setAlwaysOnTop: (value) => ipcRenderer.invoke("window:alwaysOnTop:set", value),
   getEdgeDockState: () => ipcRenderer.invoke("window:edgeDock:get"),

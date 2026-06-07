@@ -68,6 +68,7 @@ let edgeDockState = { enabled: edgeDockEnabled, docked: false, edge: null };
 let refreshTimer = null;
 let latestQuota = null;
 let windowLimits = null;
+let lockedWidgetHeight = null;
 
 const THEME_CONFIG = {
   // 默认背景色；本地没有保存主题时使用。
@@ -424,9 +425,7 @@ async function bootstrap() {
     else refreshQuota();
   });
 
-  els.paletteBtn.addEventListener("click", () => {
-    toggleThemePanel();
-  });
+  els.paletteBtn.addEventListener("click", toggleThemePanel);
   els.bgColorInput.addEventListener("input", updateBackgroundTheme);
   els.textColorInput.addEventListener("input", updateThemeFromControls);
   els.opacityInput.addEventListener("input", updateThemeFromControls);
@@ -509,6 +508,7 @@ function initResizeHandles() {
 
 async function startWindowResize(event) {
   if (!window.codexQuota?.getWindowBounds || !window.codexQuota?.setWindowBounds) return;
+  closeThemePanel();
   event.preventDefault();
   event.stopPropagation();
 
@@ -571,20 +571,24 @@ function updateLimitLayout() {
     return;
   }
 
-  if (window.innerHeight <= windowLimits.primaryOnlyHeightThreshold) {
+  const layoutHeight = lockedWidgetHeight || window.innerHeight;
+
+  if (layoutHeight <= windowLimits.primaryOnlyHeightThreshold) {
     els.body.dataset.limitLayout = "primary-only";
-  } else if (window.innerHeight <= windowLimits.codexOnlyHeightThreshold) {
+  } else if (layoutHeight <= windowLimits.codexOnlyHeightThreshold) {
     els.body.dataset.limitLayout = "codex-only";
   } else {
     els.body.dataset.limitLayout = "full";
   }
 }
 
-function toggleThemePanel() {
+async function toggleThemePanel() {
   const willOpen = els.themePanel.hidden;
-  els.themePanel.hidden = !willOpen;
-  els.themeOverlay.hidden = !willOpen;
-  els.paletteBtn.classList.toggle("active", willOpen);
+  if (willOpen) {
+    await openThemePanel();
+  } else {
+    await closeThemePanel();
+  }
 }
 
 function closeThemePanelOnMenuOutsideClick(event) {
@@ -594,9 +598,40 @@ function closeThemePanelOnMenuOutsideClick(event) {
   closeThemePanel();
 }
 
-function closeThemePanel() {
+async function openThemePanel() {
+  lockedWidgetHeight = window.innerHeight;
+  document.documentElement.style.setProperty("--widget-height", `${lockedWidgetHeight}px`);
+  els.body.dataset.themePanel = "open";
+  await window.codexQuota?.setThemePanelOpen?.(true);
+  updateThemePanelPosition();
+  els.themePanel.hidden = false;
+  els.themeOverlay.hidden = false;
+  els.paletteBtn.classList.add("active");
+  els.paletteBtn.blur();
+  updateLimitLayout();
+}
+
+function updateThemePanelPosition() {
+  const buttonRect = els.paletteBtn.getBoundingClientRect();
+  const panelWidth = Math.min(170, Math.max(0, window.innerWidth - 16));
+  const panelLeft = clampNumber(buttonRect.left + buttonRect.width / 2 - panelWidth / 2, 8, Math.max(8, window.innerWidth - panelWidth - 8));
+  const panelTop = buttonRect.bottom + 6;
+
+  document.documentElement.style.setProperty("--theme-panel-left", `${Math.round(panelLeft)}px`);
+  document.documentElement.style.setProperty("--theme-panel-top", `${Math.round(panelTop)}px`);
+}
+
+async function closeThemePanel() {
+  if (els.themePanel.hidden && !lockedWidgetHeight) return;
   updateThemeFromControls();
   els.themePanel.hidden = true;
   els.themeOverlay.hidden = true;
   els.paletteBtn.classList.remove("active");
+  await window.codexQuota?.setThemePanelOpen?.(false);
+  lockedWidgetHeight = null;
+  delete els.body.dataset.themePanel;
+  document.documentElement.style.removeProperty("--widget-height");
+  document.documentElement.style.removeProperty("--theme-panel-left");
+  document.documentElement.style.removeProperty("--theme-panel-top");
+  updateLimitLayout();
 }

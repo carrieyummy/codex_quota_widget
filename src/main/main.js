@@ -15,6 +15,7 @@ let edgeDockMoveTimer;
 let edgeDockHoverTimer;
 let currentLanguage = "zh";
 let latestQuota;
+let themePanelBaseBounds = null;
 // 贴边收起功能总开关，对应标题栏里的“贴边收起”按钮。
 let edgeDockEnabled = false;
 // 当前贴边状态。null 表示普通窗口；对象表示已吸附到某个边，并保存 restoreBounds。
@@ -52,6 +53,7 @@ const windowLimits = {
   codexOnlyHeightThreshold: 100,
   // 完整窗口高度小于等于这个值时，界面只显示 Codex 的主限额。
   primaryOnlyHeightThreshold: 83,
+  themePanelExtraHeight: 92,
   // 距离屏幕/工作区上边缘多少像素以内触发顶部贴边收起。
   edgeThreshold: 32,
   // 从顶部缩略条恢复完整窗口时，向屏幕内部偏移的距离。
@@ -82,7 +84,7 @@ function createWindow() {
     minWidth: Math.min(windowLimits.dockCodexOnlyWidth, windowLimits.minWidth),
     maxWidth: Math.max(windowLimits.maxWidth, windowLimits.dockFullWidth),
     minHeight: windowLimits.dockHeight,
-    maxHeight: windowLimits.maxHeight,
+    maxHeight: windowLimits.maxHeight + windowLimits.themePanelExtraHeight,
     frame: false,
     transparent: true,
     resizable: false,
@@ -207,6 +209,7 @@ function scheduleSaveWindowBounds() {
 
 function saveWindowBounds() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (themePanelBaseBounds) return;
   const bounds = getPersistableWindowBounds();
 
   try {
@@ -218,6 +221,7 @@ function saveWindowBounds() {
 }
 
 function getPersistableWindowBounds() {
+  if (themePanelBaseBounds) return themePanelBaseBounds;
   if (edgeDockState?.restoreBounds) return edgeDockState.restoreBounds;
   if (lastNormalBounds && Number.isFinite(lastNormalBounds.x) && Number.isFinite(lastNormalBounds.y)) return lastNormalBounds;
   return normalizeExpandedBounds(mainWindow.getBounds());
@@ -241,7 +245,7 @@ function normalizeExpandedBounds(bounds) {
 
 // 记录最近一次完整窗口位置。缩略态和程序主动 setBounds 时不会覆盖它。
 function rememberNormalBounds() {
-  if (!mainWindow || mainWindow.isDestroyed() || edgeDockState || isApplyingWindowBounds) return;
+  if (!mainWindow || mainWindow.isDestroyed() || edgeDockState || themePanelBaseBounds || isApplyingWindowBounds) return;
   lastNormalBounds = normalizeExpandedBounds(mainWindow.getBounds());
 }
 
@@ -250,6 +254,7 @@ function rememberNormalBounds() {
 // 返回 Electron 实际应用后的窗口 bounds。
 function setWindowBounds(bounds) {
   if (!mainWindow || mainWindow.isDestroyed() || !bounds || typeof bounds !== "object") return null;
+  closeThemePanelWindowExpansion();
   if (edgeDockState) return mainWindow.getBounds();
   const current = mainWindow.getBounds();
   const requestedHeight = Number.isFinite(bounds.height) ? Math.round(bounds.height) : current.height;
@@ -264,6 +269,42 @@ function setWindowBounds(bounds) {
   rememberNormalBounds();
   scheduleSaveWindowBounds();
   return mainWindow.getBounds();
+}
+
+function setThemePanelOpen(value) {
+  if (value) return openThemePanelWindowExpansion();
+  return closeThemePanelWindowExpansion();
+}
+
+function openThemePanelWindowExpansion() {
+  if (!mainWindow || mainWindow.isDestroyed() || edgeDockState) return null;
+  if (themePanelBaseBounds) return themePanelBaseBounds;
+
+  const currentBounds = mainWindow.getBounds();
+  themePanelBaseBounds = normalizeExpandedBounds(currentBounds);
+  const { workArea } = screen.getDisplayMatching(currentBounds);
+  const expandedHeight = Math.min(workArea.height, themePanelBaseBounds.height + windowLimits.themePanelExtraHeight);
+  const expandedBounds = {
+    ...currentBounds,
+    height: expandedHeight
+  };
+
+  applyWindowBounds(expandedBounds);
+  return themePanelBaseBounds;
+}
+
+function closeThemePanelWindowExpansion() {
+  if (!mainWindow || mainWindow.isDestroyed() || !themePanelBaseBounds) return null;
+
+  const baseBounds = themePanelBaseBounds;
+  themePanelBaseBounds = null;
+  const { workArea } = screen.getDisplayMatching(mainWindow.getBounds());
+  const restoredBounds = clampBoundsToWorkArea(baseBounds, workArea);
+
+  applyWindowBounds(restoredBounds);
+  lastNormalBounds = restoredBounds;
+  scheduleSaveWindowBounds();
+  return restoredBounds;
 }
 
 // 程序内部统一使用这个函数改窗口位置/尺寸，方便 isApplyingWindowBounds 屏蔽递归 move/resize。
@@ -754,6 +795,7 @@ app.whenReady().then(() => {
   ipcMain.handle("window:limits:get", () => getWindowLimits());
   ipcMain.handle("window:bounds:get", () => mainWindow?.getBounds());
   ipcMain.handle("window:bounds:set", (_event, bounds) => setWindowBounds(bounds));
+  ipcMain.handle("window:themePanel:setOpen", (_event, value) => setThemePanelOpen(value));
   ipcMain.handle("window:alwaysOnTop:get", () => isAlwaysOnTop);
   ipcMain.handle("window:alwaysOnTop:set", (_event, value) => setAlwaysOnTop(value));
   ipcMain.handle("window:edgeDock:get", () => getEdgeDockState());
