@@ -30,32 +30,38 @@ let isApplyingWindowBounds = false;
 // 最近一次完整窗口的尺寸/位置。保存状态和从缩略态恢复时都会使用它。
 let lastNormalBounds;
 
-// 首次启动或状态文件无效时使用的完整窗口默认尺寸。
-const defaultBounds = {
-  width: 291,
-  height: 139
-};
-
 // 窗口尺寸和贴边行为的主要调参入口。
 const windowLimits = {
-  // 完整窗口固定宽度。普通展开状态始终回到这个宽度。
-  fixedWidth: 291,
+  // 完整窗口默认宽度；首次启动或状态文件无效时使用。
+  defaultWidth: 275,
+  // 完整窗口手动调整宽度的下限。
+  minWidth: 260,
+  // 完整窗口手动调整宽度的上限。
+  maxWidth: 320,
   // 同时显示 Codex + Spark 的贴边缩略条宽度。需要留够两个 5 小时重置时间。
   dockFullWidth: 350,
   // 只显示 Codex 限额时的贴边缩略条宽度。调小会更省空间，但要留够 HH:mm Codex: 100% 14:44 100%。
-  dockCodexOnlyWidth: 180,
+  dockCodexOnlyWidth: 175,
   // 完整窗口可手动缩放到的最小高度。
   minHeight: 74,
   // 完整窗口可手动缩放到的最大高度。
-  maxHeight: 139,
+  maxHeight: 130,
   // 顶部贴边缩略条高度。只影响缩略态，不影响完整窗口最小高度。
-  dockHeight: 26,
+  dockHeight: 15,
   // 完整窗口高度小于等于这个值时，界面只显示 Codex 限额；贴边后也会隐藏 Spark 并使用 dockCodexOnlyWidth。
-  codexOnlyHeightThreshold: 118,
+  codexOnlyHeightThreshold: 100,
+  // 完整窗口高度小于等于这个值时，界面只显示 Codex 的主限额。
+  primaryOnlyHeightThreshold: 83,
   // 距离屏幕/工作区上边缘多少像素以内触发顶部贴边收起。
   edgeThreshold: 32,
   // 从顶部缩略条恢复完整窗口时，向屏幕内部偏移的距离。
   restoreInset: 18
+};
+
+// 首次启动或状态文件无效时使用的完整窗口默认尺寸。
+const defaultBounds = {
+  width: windowLimits.defaultWidth,
+  height: windowLimits.maxHeight
 };
 
 const trayStates = {
@@ -73,8 +79,8 @@ function createWindow() {
     height: savedBounds.height,
     x: savedBounds.x,
     y: savedBounds.y,
-    minWidth: Math.min(windowLimits.dockCodexOnlyWidth, windowLimits.fixedWidth),
-    maxWidth: Math.max(windowLimits.fixedWidth, windowLimits.dockFullWidth),
+    minWidth: Math.min(windowLimits.dockCodexOnlyWidth, windowLimits.minWidth),
+    maxWidth: Math.max(windowLimits.maxWidth, windowLimits.dockFullWidth),
     minHeight: windowLimits.dockHeight,
     maxHeight: windowLimits.maxHeight,
     frame: false,
@@ -156,10 +162,10 @@ function loadWindowBounds() {
 
 // 校验保存过的窗口状态：
 // 参数 state 是 window-state.json 里读出的对象。
-// 返回固定宽度、合法高度和可用坐标；如果保存位置已完全不可见，则丢弃坐标。
+// 返回合法宽高和可用坐标；如果保存位置已完全不可见，则丢弃坐标。
 function sanitizeWindowBounds(state) {
   if (!state || typeof state !== "object") return null;
-  const width = windowLimits.fixedWidth;
+  const width = clampNumber(Math.round(Number(state.width) || defaultBounds.width), windowLimits.minWidth, windowLimits.maxWidth);
   const height = clampNumber(Math.round(Number(state.height) || defaultBounds.height), windowLimits.minHeight, windowLimits.maxHeight);
   const x = Number.isFinite(state.x) ? Math.round(state.x) : undefined;
   const y = Number.isFinite(state.y) ? Math.round(state.y) : undefined;
@@ -219,11 +225,12 @@ function getPersistableWindowBounds() {
 
 // 把任意窗口 bounds 归一化成“完整窗口”尺寸：
 // 参数 bounds 可以来自 Electron getBounds() 或保存文件。
-// 返回固定宽度 + min/max 限制后的高度；坐标存在时保留。
+// 返回 min/max 限制后的宽高；坐标存在时保留。
 function normalizeExpandedBounds(bounds) {
   const height = clampNumber(Math.round(Number(bounds?.height) || defaultBounds.height), windowLimits.minHeight, windowLimits.maxHeight);
+  const width = clampNumber(Math.round(Number(bounds?.width) || defaultBounds.width), windowLimits.minWidth, windowLimits.maxWidth);
   const normalized = {
-    width: windowLimits.fixedWidth,
+    width,
     height
   };
 
@@ -238,8 +245,8 @@ function rememberNormalBounds() {
   lastNormalBounds = normalizeExpandedBounds(mainWindow.getBounds());
 }
 
-// 渲染层手动调整高度时调用：
-// 参数 bounds 只允许影响 y/height，宽度始终固定为 windowLimits.fixedWidth。
+// 渲染层手动调整窗口尺寸时调用：
+// 参数 bounds 允许影响 x/y/width/height，但宽高会被夹在 windowLimits 范围内。
 // 返回 Electron 实际应用后的窗口 bounds。
 function setWindowBounds(bounds) {
   if (!mainWindow || mainWindow.isDestroyed() || !bounds || typeof bounds !== "object") return null;
@@ -247,9 +254,9 @@ function setWindowBounds(bounds) {
   const current = mainWindow.getBounds();
   const requestedHeight = Number.isFinite(bounds.height) ? Math.round(bounds.height) : current.height;
   const nextBounds = {
-    x: current.x,
+    x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : current.x,
     y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : current.y,
-    width: windowLimits.fixedWidth,
+    width: clampNumber(Math.round(Number(bounds.width) || current.width), windowLimits.minWidth, windowLimits.maxWidth),
     height: clampNumber(requestedHeight, windowLimits.minHeight, windowLimits.maxHeight)
   };
 
@@ -358,8 +365,7 @@ function getDockWidth(restoreBounds) {
   return windowLimits.dockFullWidth;
 }
 
-// 与 styles.css 里的 @media (max-height: 118px) 保持一致。
-// 如果你调整 CSS 里隐藏 Spark 的高度阈值，也要同步改 windowLimits.codexOnlyHeightThreshold。
+// 高度阈值只在 windowLimits.codexOnlyHeightThreshold 配置；渲染层通过 IPC 读取。
 function isCodexOnlyHeight(bounds) {
   const height = Number(bounds?.height);
   return Number.isFinite(height) && height <= windowLimits.codexOnlyHeightThreshold;
@@ -542,8 +548,13 @@ function getEdgeDockState() {
     enabled: edgeDockEnabled,
     docked: Boolean(edgeDockState) && !edgeDockPreview,
     preview: edgeDockPreview,
+    compact: Boolean(edgeDockState && isCodexOnlyHeight(edgeDockState.restoreBounds)),
     edge: edgeDockState?.edge || null
   };
+}
+
+function getWindowLimits() {
+  return { ...windowLimits };
 }
 
 function sendEdgeDockState() {
@@ -740,6 +751,7 @@ app.whenReady().then(() => {
     }
   });
   ipcMain.handle("window:minimize", () => mainWindow?.hide());
+  ipcMain.handle("window:limits:get", () => getWindowLimits());
   ipcMain.handle("window:bounds:get", () => mainWindow?.getBounds());
   ipcMain.handle("window:bounds:set", (_event, bounds) => setWindowBounds(bounds));
   ipcMain.handle("window:alwaysOnTop:get", () => isAlwaysOnTop);

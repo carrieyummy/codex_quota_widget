@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("codexQuota", {
   getQuota: () => ipcRenderer.invoke("quota:get"),
   minimize: () => ipcRenderer.invoke("window:minimize"),
+  getWindowLimits: () => ipcRenderer.invoke("window:limits:get"),
   getWindowBounds: () => ipcRenderer.invoke("window:bounds:get"),
   setWindowBounds: (bounds) => ipcRenderer.invoke("window:bounds:set", bounds),
   getAlwaysOnTop: () => ipcRenderer.invoke("window:alwaysOnTop:get"),

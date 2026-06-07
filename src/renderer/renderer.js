@@ -67,10 +67,24 @@ let edgeDockEnabled = localStorage.getItem("edgeDockEnabled") === "true";
 let edgeDockState = { enabled: edgeDockEnabled, docked: false, edge: null };
 let refreshTimer = null;
 let latestQuota = null;
+let windowLimits = null;
 
-const FIXED_WINDOW_WIDTH = 291;
-const MIN_WINDOW_HEIGHT = 72;
-const MAX_WINDOW_HEIGHT = 139;
+const THEME_CONFIG = {
+  // 默认背景色；本地没有保存主题时使用。
+  defaultBackgroundColor: "#0a2f35",
+  // 默认文字色；背景色较深时也会作为推荐文字色。
+  defaultTextColor: "#dbf5f1",
+  // 默认背景不透明度，单位是百分比。
+  defaultOpacity: 50,
+  // 透明度滑块和运行时校验共用的最低值；需要更透明时只改这里。
+  minOpacity: 0,
+  // 透明度滑块和运行时校验共用的最高值。
+  maxOpacity: 95,
+  // 背景渐变较实一端比当前透明度额外增加的 alpha。
+  strongAlphaOffset: 0.12,
+  // 背景渐变较实一端的 alpha 上限，避免高透明度时完全糊成实色。
+  maxStrongAlpha: 0.96
+};
 
 const els = {
   body: document.body,
@@ -126,12 +140,12 @@ function applyLabels() {
 }
 
 function loadTheme() {
-  const backgroundColor = localStorage.getItem("theme.backgroundColor") || "#0a2f35";
+  const backgroundColor = localStorage.getItem("theme.backgroundColor") || THEME_CONFIG.defaultBackgroundColor;
 
   return {
     backgroundColor,
     textColor: localStorage.getItem("theme.textColor") || getRecommendedTextColor(backgroundColor),
-    opacity: Number(localStorage.getItem("theme.backgroundOpacity") || "72")
+    opacity: normalizeOpacity(localStorage.getItem("theme.backgroundOpacity"))
   };
 }
 
@@ -142,16 +156,31 @@ function saveTheme(theme) {
 }
 
 function applyTheme(theme) {
-  const backgroundRgb = hexToRgb(theme.backgroundColor) || hexToRgb("#0a2f35");
-  const textRgb = hexToRgb(theme.textColor) || hexToRgb("#dbf5f1");
-  const opacity = Math.max(35, Math.min(95, Number(theme.opacity) || 72));
+  const backgroundRgb = hexToRgb(theme.backgroundColor) || hexToRgb(THEME_CONFIG.defaultBackgroundColor);
+  const textRgb = hexToRgb(theme.textColor) || hexToRgb(THEME_CONFIG.defaultTextColor);
+  const opacity = normalizeOpacity(theme.opacity);
   const alpha = opacity / 100;
 
   document.documentElement.style.setProperty("--glass-rgb", `${backgroundRgb.r}, ${backgroundRgb.g}, ${backgroundRgb.b}`);
   document.documentElement.style.setProperty("--glass-alpha", alpha.toFixed(2));
-  document.documentElement.style.setProperty("--glass-alpha-strong", Math.min(0.96, alpha + 0.12).toFixed(2));
+  document.documentElement.style.setProperty("--glass-alpha-strong", Math.min(THEME_CONFIG.maxStrongAlpha, alpha + THEME_CONFIG.strongAlphaOffset).toFixed(2));
   document.documentElement.style.setProperty("--text", `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.94)`);
   document.documentElement.style.setProperty("--muted", `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.68)`);
+}
+
+function configureThemeControls() {
+  els.opacityInput.min = String(THEME_CONFIG.minOpacity);
+  els.opacityInput.max = String(THEME_CONFIG.maxOpacity);
+  els.opacityInput.value = String(THEME_CONFIG.defaultOpacity);
+}
+
+function normalizeOpacity(value) {
+  const opacity = Number(value);
+  return clampNumber(Number.isFinite(opacity) ? opacity : THEME_CONFIG.defaultOpacity, THEME_CONFIG.minOpacity, THEME_CONFIG.maxOpacity);
+}
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function hexToRgb(hex) {
@@ -165,18 +194,19 @@ function hexToRgb(hex) {
 }
 
 function getRecommendedTextColor(backgroundColor) {
-  const rgb = hexToRgb(backgroundColor) || hexToRgb("#0a2f35");
+  const rgb = hexToRgb(backgroundColor) || hexToRgb(THEME_CONFIG.defaultBackgroundColor);
   const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  return luminance > 0.58 ? "#17202a" : "#dbf5f1";
+  return luminance > 0.58 ? "#17202a" : THEME_CONFIG.defaultTextColor;
 }
 
 function updateThemeFromControls() {
   const theme = {
     backgroundColor: els.bgColorInput.value,
     textColor: els.textColorInput.value,
-    opacity: Number(els.opacityInput.value)
+    opacity: normalizeOpacity(els.opacityInput.value)
   };
 
+  els.opacityInput.value = String(theme.opacity);
   applyTheme(theme);
   saveTheme(theme);
 }
@@ -214,18 +244,22 @@ function stateForRemaining(percent) {
   return "ready";
 }
 
-function formatWindowValue(window) {
+function formatWindowValue(window, resetFormat = "auto") {
   if (!window) return "--";
   const remaining = Number.isFinite(window.remainingPercent) ? Math.round(window.remainingPercent) : null;
-  const reset = formatResetTime(window.resetsAt);
+  const reset = formatResetTime(window.resetsAt, resetFormat);
   const percentPart = remaining === null ? "--" : `${t("remaining")} ${remaining}%`;
   return reset ? `${percentPart} (${t("resetTime")}: ${reset})` : percentPart;
 }
 
-function formatResetTime(iso) {
+function formatResetTime(iso, resetFormat = "auto") {
   if (!iso) return "";
   const date = new Date(iso);
   if (!Number.isFinite(date.getTime())) return "";
+
+  if (resetFormat === "time") {
+    return formatClockTime(date);
+  }
 
   const now = new Date();
   const sameDay =
@@ -265,10 +299,10 @@ function updateDockSummary(quota) {
   const fetchedAt = quota?.fetchedAt ? new Date(quota.fetchedAt) : null;
 
   els.dockCodexPrimary.textContent = formatCompactPercent(codexLimit?.primary);
-  els.dockCodexPrimaryReset.textContent = formatCompactReset(codexLimit?.primary);
+  els.dockCodexPrimaryReset.textContent = formatCompactReset(codexLimit?.primary, "time");
   els.dockCodexSecondary.textContent = formatCompactPercent(codexLimit?.secondary);
   els.dockSparkPrimary.textContent = formatCompactPercent(sparkLimit?.primary);
-  els.dockSparkPrimaryReset.textContent = formatCompactReset(sparkLimit?.primary);
+  els.dockSparkPrimaryReset.textContent = formatCompactReset(sparkLimit?.primary, "time");
   els.dockSparkSecondary.textContent = formatCompactPercent(sparkLimit?.secondary);
   els.dockUpdatedAt.textContent = fetchedAt && Number.isFinite(fetchedAt.getTime()) ? formatClockTime(fetchedAt) : "--:--";
 }
@@ -285,8 +319,8 @@ function formatCompactPercent(window) {
   return `${Math.round(window.remainingPercent)}%`;
 }
 
-function formatCompactReset(window) {
-  return formatResetTime(window?.resetsAt) || "--:--";
+function formatCompactReset(window, resetFormat = "auto") {
+  return formatResetTime(window?.resetsAt, resetFormat) || "--:--";
 }
 
 function renderQuotaList(limits) {
@@ -318,7 +352,7 @@ function createQuotaRow(label, window, type) {
 
   const valueEl = document.createElement("strong");
   valueEl.className = "quota-value";
-  valueEl.textContent = formatWindowValue(window);
+  valueEl.textContent = formatWindowValue(window, type === "primary" ? "time" : "auto");
 
   row.append(labelEl, valueEl);
   return row;
@@ -357,6 +391,13 @@ async function refreshQuota() {
 }
 
 async function bootstrap() {
+  configureThemeControls();
+  if (window.codexQuota?.getWindowLimits) {
+    windowLimits = await window.codexQuota.getWindowLimits();
+  }
+  updateLimitLayout();
+  window.addEventListener("resize", updateLimitLayout);
+
   const theme = loadTheme();
   els.bgColorInput.value = theme.backgroundColor;
   els.textColorInput.value = theme.textColor;
@@ -431,6 +472,7 @@ function applyEdgeDockState(state) {
   edgeDockState = {
     enabled: Boolean(state.enabled),
     docked: Boolean(state.docked),
+    compact: Boolean(state.compact),
     edge: state.edge || null
   };
   edgeDockEnabled = edgeDockState.enabled;
@@ -438,8 +480,10 @@ function applyEdgeDockState(state) {
   els.body.dataset.edgeDock = edgeDockState.docked ? "docked" : "expanded";
   if (edgeDockState.docked && edgeDockState.edge) {
     els.body.dataset.dockEdge = edgeDockState.edge;
+    els.body.dataset.dockContent = edgeDockState.compact ? "codex-only" : "full";
   } else {
     delete els.body.dataset.dockEdge;
+    delete els.body.dataset.dockContent;
   }
 
   localStorage.setItem("edgeDockEnabled", String(edgeDockEnabled));
@@ -496,19 +540,44 @@ async function startWindowResize(event) {
 
 function calculateResizeBounds(startBounds, edge, dx, dy) {
   const next = { ...startBounds };
+  if (!windowLimits) return next;
 
   if (edge.includes("s")) {
-    next.height = Math.max(MIN_WINDOW_HEIGHT, Math.min(MAX_WINDOW_HEIGHT, startBounds.height + dy));
+    next.height = clampNumber(startBounds.height + dy, windowLimits.minHeight, windowLimits.maxHeight);
   }
 
   if (edge.includes("n")) {
-    const height = Math.max(MIN_WINDOW_HEIGHT, Math.min(MAX_WINDOW_HEIGHT, startBounds.height - dy));
+    const height = clampNumber(startBounds.height - dy, windowLimits.minHeight, windowLimits.maxHeight);
     next.y = startBounds.y + (startBounds.height - height);
     next.height = height;
   }
 
-  next.width = FIXED_WINDOW_WIDTH;
+  if (edge.includes("e")) {
+    next.width = clampNumber(startBounds.width + dx, windowLimits.minWidth, windowLimits.maxWidth);
+  }
+
+  if (edge.includes("w")) {
+    const width = clampNumber(startBounds.width - dx, windowLimits.minWidth, windowLimits.maxWidth);
+    next.x = startBounds.x + (startBounds.width - width);
+    next.width = width;
+  }
+
   return next;
+}
+
+function updateLimitLayout() {
+  if (!windowLimits) {
+    delete els.body.dataset.limitLayout;
+    return;
+  }
+
+  if (window.innerHeight <= windowLimits.primaryOnlyHeightThreshold) {
+    els.body.dataset.limitLayout = "primary-only";
+  } else if (window.innerHeight <= windowLimits.codexOnlyHeightThreshold) {
+    els.body.dataset.limitLayout = "codex-only";
+  } else {
+    els.body.dataset.limitLayout = "full";
+  }
 }
 
 function toggleThemePanel() {

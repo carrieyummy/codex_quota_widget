@@ -29,6 +29,21 @@
   --text: rgba(219, 245, 241, 0.94);
   /* 次级文字色，例如更新时间、说明文字。 */
   --muted: rgba(190, 224, 218, 0.72);
+  /* 完整窗口外壳圆角。 */
+  --window-radius: 9px;
+  /* 内部高光描边圆角；比外壳小 1px，用来贴合 .widget::before 的 inset: 1px。 */
+  --window-inner-radius: 8px;
+  /* 顶部贴边缩略条的下方圆角；顶部需要贴屏幕边缘，所以保持 0。 */
+  --dock-radius: 9px;
+  /* 顶部贴边缩略条内部高光描边圆角；同样比 --dock-radius 小 1px。 */
+  --dock-inner-radius: 8px;
+  /* 贴边缩略条内容离窗口边缘的距离，顺序是 top/right/bottom/left。 */
+  --dock-padding: 3px 5px 3px 5px;
+  /* 贴边缩略条内各段文字和状态圆点之间的默认间距。 */
+  --dock-content-gap: 3px;
+  /* 贴边状态下圆点自身左右外边距；通常只做微调，主位置优先改 --dock-padding。 */
+  --dock-light-margin-left: 0px;
+  --dock-light-margin-right: 0px;
 }
 
 html,
@@ -75,10 +90,10 @@ body[data-state="warning"] {
   width: 100vw;
   height: 100vh;
   /* 完整窗口内边距；贴边收起时由 body[data-edge-dock="docked"] 覆盖。 */
-  padding: 10px;
+  padding: 5px 5px 5px 10px;
   /* 外边框和圆角；向上贴边收起时会覆盖顶部圆角。 */
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 18px;
+  border-radius: var(--window-radius);
   /* 三层背景：左上高光、右下状态色光斑、主体玻璃渐变。 */
   background:
     radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.12), transparent 32%),
@@ -99,7 +114,7 @@ body[data-state="warning"] {
   content: "";
   position: absolute;
   inset: 1px;
-  border-radius: 17px;
+  border-radius: var(--window-inner-radius);
   pointer-events: none;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), transparent 40%, rgba(255, 255, 255, 0.08));
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -109,7 +124,7 @@ body[data-state="warning"] {
   -webkit-mask-composite: xor;
 }
 
-/* 自定义调整高度的透明拖拽热区。当前窗口宽度固定，所以横向和角落热区隐藏。 */
+/* 自定义调整窗口宽高的透明拖拽热区。 */
 .resize-handle {
   position: absolute;
   z-index: 10;
@@ -127,11 +142,10 @@ body[data-state="warning"] {
 
 .resize-e,
 .resize-w {
-  /* 宽度固定，所以左右 resize 热区关闭。 */
+  /* 左右边缘 8px 宽度拖拽区，用于调整完整窗口宽度。 */
   top: 10px;
   bottom: 10px;
   width: 8px;
-  display: none;
 }
 
 .resize-n {
@@ -158,10 +172,9 @@ body[data-state="warning"] {
 .resize-se,
 .resize-sw,
 .resize-nw {
-  /* 角落 resize 同样关闭。 */
+  /* 角落拖拽区，用于同时调整完整窗口宽度和高度。 */
   width: 14px;
   height: 14px;
-  display: none;
 }
 
 .resize-ne {
@@ -422,7 +435,7 @@ button:hover {
 /* 贴边收起态的窗口内边距。
    四个值依次是 top/right/bottom/left；调左侧圆点位置优先改最后一个值。 */
 body[data-edge-dock="docked"] .widget {
-  padding: 6px 4px 6px 11px;
+  padding: var(--dock-padding);
 }
 
 /* 贴边收起时只显示 .dock-strip，隐藏完整窗口内容和调整高度热区。 */
@@ -444,20 +457,18 @@ body[data-edge-dock="docked"] .ambient {
 body[data-edge-dock="docked"] .dock-strip {
   display: flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: var(--dock-content-gap);
   min-width: 0;
   cursor: move;
   -webkit-app-region: drag;
 }
 
-/* Codex-only 窄贴边条：当主进程把贴边窗口缩窄时，隐藏 Spark 相关内容。
-   max-width 要大于 main.js 里的 dockCodexOnlyWidth，并小于 dockFullWidth。 */
-@media (max-width: 260px) {
-  body[data-edge-dock="docked"] .dock-separator,
-  body[data-edge-dock="docked"] .dock-spark-label,
-  body[data-edge-dock="docked"] .dock-spark-value {
-    display: none;
-  }
+/* Codex-only 窄贴边条由主进程 windowLimits.codexOnlyHeightThreshold 决定。 */
+body[data-edge-dock="docked"][data-dock-content="codex-only"] .dock-separator,
+body[data-edge-dock="docked"][data-dock-content="codex-only"] .dock-spark-label,
+body[data-edge-dock="docked"][data-dock-content="codex-only"] .dock-spark-value {
+  display: none;
 }
 
 /* 贴边收起态圆点：完整窗口圆点太大，所以这里单独缩小。
@@ -465,8 +476,8 @@ body[data-edge-dock="docked"] .dock-strip {
 body[data-edge-dock="docked"] .traffic-light {
   width: 8px;
   height: 8px;
-  margin-left: 2px;
-  margin-right: 2px;
+  margin-left: var(--dock-light-margin-left);
+  margin-right: var(--dock-light-margin-right);
   box-shadow:
     0 0 0 2px var(--accent-soft),
     0 0 9px var(--accent);
@@ -474,11 +485,11 @@ body[data-edge-dock="docked"] .traffic-light {
 
 /* 吸附到屏幕上边：顶部贴边，所以只保留下方圆角。 */
 body[data-dock-edge="top"] .widget {
-  border-radius: 0 0 14px 14px;
+  border-radius: 0 0 var(--dock-radius) var(--dock-radius);
 }
 
 body[data-dock-edge="top"] .widget::before {
-  border-radius: 0 0 13px 13px;
+  border-radius: 0 0 var(--dock-inner-radius) var(--dock-inner-radius);
 }
 
 /* 调色盘遮罩：透明层用于点击外部关闭主题面板。 */
@@ -547,7 +558,7 @@ body[data-dock-edge="top"] .widget::before {
   position: relative;
   z-index: 2;
   margin-top: 6px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 40px);
   /* 内容多时允许内部滚动，但隐藏滚动条以保持小组件简洁。 */
   overflow: auto;
   scrollbar-width: none;
@@ -609,16 +620,12 @@ body[data-dock-edge="top"] .widget::before {
   white-space: nowrap;
 }
 
-/* 高度小于 118px 时隐藏非 Codex 的次级模型，避免内容溢出。 */
-@media (max-height: 118px) {
-  .quota-group.secondary-limit {
-    display: none;
-  }
+/* 响应式内容密度由主进程 windowLimits 阈值决定，渲染层写入 data-limit-layout。 */
+body[data-limit-layout="codex-only"] .quota-group.secondary-limit,
+body[data-limit-layout="primary-only"] .quota-group.secondary-limit {
+  display: none;
 }
 
-/* 高度小于 96px 时进一步隐藏 Codex 的 7 天额度。 */
-@media (max-height: 96px) {
-  .quota-group[data-limit-id="codex"] .quota-row.secondary {
-    display: none;
-  }
+body[data-limit-layout="primary-only"] .quota-group[data-limit-id="codex"] .quota-row.secondary {
+  display: none;
 }
