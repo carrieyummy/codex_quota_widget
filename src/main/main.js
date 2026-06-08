@@ -91,7 +91,7 @@ function createWindow() {
     thickFrame: false,
     hasShadow: false,
     alwaysOnTop: isAlwaysOnTop,
-    skipTaskbar: false,
+    skipTaskbar: true,
     icon: createTrayIcon("loading"),
     show: false,
     backgroundColor: "#00000000",
@@ -105,11 +105,11 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
     if (!savedBounds.hasPosition) {
-      placeWindowTopRight();
+      placeWindowNearTray();
       saveWindowBounds();
     }
+    mainWindow.show();
   });
   mainWindow.on("resize", () => {
     rememberNormalBounds();
@@ -120,16 +120,20 @@ function createWindow() {
     scheduleSaveWindowBounds();
     scheduleEdgeDockCheck();
   });
+  mainWindow.on("minimize", (event) => {
+    event.preventDefault();
+    hideWindowToTray();
+  });
 }
 
-function placeWindowTopRight() {
+function placeWindowNearTray() {
   if (!mainWindow) return;
   const display = screen.getPrimaryDisplay();
   const { width, height } = mainWindow.getBounds();
   const { workArea } = display;
   mainWindow.setBounds({
     x: workArea.x + workArea.width - width - 24,
-    y: workArea.y + 24,
+    y: workArea.y + workArea.height - height - 24,
     width,
     height
   });
@@ -475,9 +479,34 @@ function restoreEdgeDock(currentBounds) {
 function restoreEdgeDockAfterDrag(bounds) {
   if (!edgeDockState || edgeDockState.edge !== "top") return;
   const { workArea } = screen.getDisplayMatching(bounds);
-  if (bounds.y <= workArea.y + windowLimits.edgeThreshold) return;
+  if (bounds.y <= workArea.y + windowLimits.edgeThreshold) {
+    rememberTopDockDragPosition(bounds, workArea);
+    return;
+  }
 
   restoreEdgeDock(bounds);
+}
+
+function rememberTopDockDragPosition(bounds, workArea) {
+  if (!edgeDockState || edgeDockState.edge !== "top") return;
+
+  const restoreBounds = normalizeExpandedBounds(edgeDockState.restoreBounds);
+  const nextRestoreBounds = clampBoundsToWorkArea(
+    {
+      ...restoreBounds,
+      x: bounds.x
+    },
+    workArea
+  );
+
+  if (nextRestoreBounds.x === restoreBounds.x && nextRestoreBounds.y === restoreBounds.y) return;
+
+  edgeDockState = {
+    ...edgeDockState,
+    restoreBounds: nextRestoreBounds
+  };
+  lastNormalBounds = nextRestoreBounds;
+  scheduleSaveWindowBounds();
 }
 
 // 启动贴边缩略态的鼠标悬停轮询。
@@ -537,7 +566,9 @@ function showEdgeDockPreview(bounds) {
 // 无参数；使用当前窗口所在屏幕的 workArea 重新计算缩略条位置。
 function hideEdgeDockPreview() {
   if (!edgeDockState || !edgeDockPreview) return;
-  const { workArea } = screen.getDisplayMatching(mainWindow.getBounds());
+  const currentBounds = mainWindow.getBounds();
+  const { workArea } = screen.getDisplayMatching(currentBounds);
+  rememberTopDockDragPosition(currentBounds, workArea);
   edgeDockPreview = false;
   edgeDockHoverArmed = true;
   applyWindowBounds(getDockBounds(edgeDockState.restoreBounds, workArea));
@@ -768,11 +799,23 @@ function setAlwaysOnTop(value) {
 function toggleWindow() {
   if (!mainWindow) return;
   if (mainWindow.isVisible()) {
-    mainWindow.hide();
+    hideWindowToTray();
   } else {
-    mainWindow.show();
-    mainWindow.focus();
+    showWindowFromTray();
   }
+}
+
+function hideWindowToTray() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setSkipTaskbar(true);
+  mainWindow.hide();
+}
+
+function showWindowFromTray() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setSkipTaskbar(true);
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 app.whenReady().then(() => {
@@ -791,7 +834,7 @@ app.whenReady().then(() => {
       throw error;
     }
   });
-  ipcMain.handle("window:minimize", () => mainWindow?.hide());
+  ipcMain.handle("window:minimize", () => hideWindowToTray());
   ipcMain.handle("window:limits:get", () => getWindowLimits());
   ipcMain.handle("window:bounds:get", () => mainWindow?.getBounds());
   ipcMain.handle("window:bounds:set", (_event, bounds) => setWindowBounds(bounds));

@@ -63,7 +63,7 @@ const i18n = {
 
 let language = localStorage.getItem("language") || "zh";
 let isAlwaysOnTop = true;
-let edgeDockEnabled = localStorage.getItem("edgeDockEnabled") === "true";
+let edgeDockEnabled = localStorage.getItem("edgeDockEnabled") !== "false";
 let edgeDockState = { enabled: edgeDockEnabled, docked: false, edge: null };
 let refreshTimer = null;
 let latestQuota = null;
@@ -72,11 +72,11 @@ let lockedWidgetHeight = null;
 
 const THEME_CONFIG = {
   // 默认背景色；本地没有保存主题时使用。
-  defaultBackgroundColor: "#0a2f35",
+  defaultBackgroundColor: "#ffffff",
   // 默认文字色；背景色较深时也会作为推荐文字色。
-  defaultTextColor: "#dbf5f1",
+  defaultTextColor: "#ffae00",
   // 默认背景不透明度，单位是百分比。
-  defaultOpacity: 50,
+  defaultOpacity: 16,
   // 透明度滑块和运行时校验共用的最低值；需要更透明时只改这里。
   minOpacity: 0,
   // 透明度滑块和运行时校验共用的最高值。
@@ -145,7 +145,7 @@ function loadTheme() {
 
   return {
     backgroundColor,
-    textColor: localStorage.getItem("theme.textColor") || getRecommendedTextColor(backgroundColor),
+    textColor: localStorage.getItem("theme.textColor") || THEME_CONFIG.defaultTextColor,
     opacity: normalizeOpacity(localStorage.getItem("theme.backgroundOpacity"))
   };
 }

@@ -16,19 +16,19 @@
   --danger: #ff5f72;
   --warning: #ffd166;
   /* 毛玻璃背景 RGB；调色盘实际改的是这个变量。 */
-  --glass-rgb: 10, 47, 53;
+  --glass-rgb: 255, 255, 255;
   /* 毛玻璃背景透明度；越大越不透明。 */
-  --glass-alpha: 0.72;
+  --glass-alpha: 0.16;
   /* 背景渐变较实的一端，比 --glass-alpha 略高。 */
-  --glass-alpha-strong: 0.84;
+  --glass-alpha-strong: 0.28;
   /* 组合后的常用玻璃色。 */
   --glass: rgba(var(--glass-rgb), var(--glass-alpha));
   /* 轻描边/分隔用浅色。 */
   --glass-light: rgba(180, 235, 226, 0.18);
   /* 主文字色。 */
-  --text: rgba(219, 245, 241, 0.94);
+  --text: rgba(255, 174, 0, 0.94);
   /* 次级文字色，例如更新时间、说明文字。 */
-  --muted: rgba(190, 224, 218, 0.72);
+  --muted: rgba(255, 174, 0, 0.68);
   /* 完整窗口外壳圆角。 */
   --window-radius: 9px;
   /* 内部高光描边圆角；比外壳小 1px，用来贴合 .widget::before 的 inset: 1px。 */
