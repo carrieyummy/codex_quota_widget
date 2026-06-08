@@ -31,6 +31,12 @@ let isApplyingWindowBounds = false;
 // 最近一次完整窗口的尺寸/位置。保存状态和从缩略态恢复时都会使用它。
 let lastNormalBounds;
 
+const windowShape = {
+  windowRadius: 9,
+  dockRadius: 9,
+  windowBottomGap: 1
+};
+
 // 窗口尺寸和贴边行为的主要调参入口。
 const windowLimits = {
   // 完整窗口默认宽度；首次启动或状态文件无效时使用。
@@ -109,9 +115,11 @@ function createWindow() {
       placeWindowNearTray();
       saveWindowBounds();
     }
+    updateWindowHitTestShape();
     mainWindow.show();
   });
   mainWindow.on("resize", () => {
+    updateWindowHitTestShape();
     rememberNormalBounds();
     scheduleSaveWindowBounds();
   });
@@ -317,9 +325,72 @@ function applyWindowBounds(bounds) {
   isApplyingWindowBounds = true;
   try {
     mainWindow.setBounds(bounds);
+    updateWindowHitTestShape(mainWindow.getBounds());
   } finally {
     isApplyingWindowBounds = false;
   }
+}
+
+function updateWindowHitTestShape(bounds = mainWindow?.getBounds()) {
+  if (!mainWindow || mainWindow.isDestroyed() || typeof mainWindow.setShape !== "function" || !bounds) return;
+
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
+  const isTopDockStrip = Boolean(edgeDockState) && !edgeDockPreview && edgeDockState.edge === "top";
+  const shapeHeight = isTopDockStrip ? height : Math.max(1, height - windowShape.windowBottomGap);
+  const radius = isTopDockStrip ? windowShape.dockRadius : windowShape.windowRadius;
+  const corners = isTopDockStrip
+    ? { bottomLeft: true, bottomRight: true }
+    : { topLeft: true, topRight: true, bottomLeft: true, bottomRight: true };
+
+  try {
+    mainWindow.setShape(createRoundedRectShape(width, shapeHeight, radius, corners));
+  } catch {
+    // Keep the widget usable if a platform cannot apply custom hit-test shapes.
+  }
+}
+
+function createRoundedRectShape(width, height, radius, corners) {
+  const normalizedRadius = clampNumber(Math.round(radius), 0, Math.floor(Math.min(width, height) / 2));
+  if (normalizedRadius <= 0) return [{ x: 0, y: 0, width, height }];
+
+  const rects = [];
+  let currentRect = null;
+
+  for (let y = 0; y < height; y += 1) {
+    const leftInset = getRoundedCornerInset(y, height, normalizedRadius, corners.topLeft, corners.bottomLeft);
+    const rightInset = getRoundedCornerInset(y, height, normalizedRadius, corners.topRight, corners.bottomRight);
+    const x = leftInset;
+    const rowWidth = Math.max(1, width - leftInset - rightInset);
+
+    if (currentRect && currentRect.x === x && currentRect.width === rowWidth) {
+      currentRect.height += 1;
+    } else {
+      currentRect = { x, y, width: rowWidth, height: 1 };
+      rects.push(currentRect);
+    }
+  }
+
+  return rects;
+}
+
+function getRoundedCornerInset(y, height, radius, hasTopCorner, hasBottomCorner) {
+  const rowCenter = y + 0.5;
+
+  if (hasTopCorner && rowCenter < radius) {
+    return calculateCircleInset(radius - rowCenter, radius);
+  }
+
+  if (hasBottomCorner && rowCenter > height - radius) {
+    return calculateCircleInset(rowCenter - (height - radius), radius);
+  }
+
+  return 0;
+}
+
+function calculateCircleInset(distanceFromCenter, radius) {
+  const horizontal = Math.sqrt(Math.max(0, radius * radius - distanceFromCenter * distanceFromCenter));
+  return Math.ceil(radius - horizontal);
 }
 
 // 延迟执行贴边检测和边界夹紧：

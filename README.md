@@ -1,7 +1,7 @@
 # Codex LED Widget
 
 <p align="center">
-  <img src="assets/01.png" width="520" />
+  <img src="assets/readme-showcase.png" width="860" />
 </p>
 
 <p align="center">
