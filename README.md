@@ -1,4 +1,4 @@
-# Codex LED Widget
+# Codex Quota Widget
 
 <p align="center">
   <img src="assets/readme-showcase.png" width="860" />
@@ -22,7 +22,7 @@
 
 # 中文说明
 
-Codex LED Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 Codex 的剩余额度、重置时间和额度状态。
+Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 Codex 的剩余额度、重置时间和额度状态。
 
 它采用透明液态玻璃质感界面，通过红、黄、绿三种 LED 状态显示额度健康度，并支持窗口高度调节、系统托盘状态图标、以及背景色 / 字体色 / 透明度自定义。你不用频繁打开命令行或页面，也能快速知道 Codex 额度是否快用完。
 
@@ -107,7 +107,7 @@ Codex LED Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 Co
 
 👉 [前往 Releases 下载](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-当前版本：`v1.0.0`
+当前版本：`v1.0.3`
 
 ---
 
@@ -145,7 +145,7 @@ Codex LED Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 Co
 
 ## 🧭 托盘说明
 
-Codex LED Widget 会在 Windows 系统托盘显示一个 LED 图标。
+Codex Quota Widget 会在 Windows 系统托盘显示一个 LED 图标。
 
 - 单击托盘图标：显示或隐藏小组件
 - 右键托盘图标：打开菜单，可刷新额度、切换置顶或退出
@@ -168,7 +168,7 @@ Codex LED Widget 会在 Windows 系统托盘显示一个 LED 图标。
 
 ## 🔐 隐私说明
 
-Codex LED Widget 设计目标是本地化、轻量、隐私友好。
+Codex Quota Widget 设计目标是本地化、轻量、隐私友好。
 
 - 使用本机已有的 Codex 登录状态
 - 不需要你手动输入 Token
@@ -285,7 +285,7 @@ GNU Affero General Public License v3.0 (AGPL-3.0)
 
 # English
 
-Codex LED Widget is a small Windows desktop widget that shows your local Codex quota, remaining percentage, and reset time.
+Codex Quota Widget is a small Windows desktop widget that shows your local Codex quota, remaining percentage, and reset time.
 
 It uses a transparent liquid-glass interface and a simple red / yellow / green LED status indicator. It also supports adjustable window height, a system tray status icon, and custom background color, text color, and opacity, so you can keep an eye on Codex usage without repeatedly opening a terminal or account page.
 
@@ -379,7 +379,7 @@ Download the latest Windows `.exe` from the **Releases** page:
 
 👉 [Download from Releases](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-Current version: `v1.0.0`
+Current version: `v1.0.3`
 
 ---
 
@@ -418,7 +418,7 @@ The remaining quota is calculated from Codex usage data available on your local 
 
 ## 🧭 Tray
 
-Codex LED Widget adds an LED icon to the Windows system tray.
+Codex Quota Widget adds an LED icon to the Windows system tray.
 
 * Click the tray icon to show or hide the widget.
 * Right-click the tray icon to refresh quota, toggle always-on-top, or quit.
@@ -441,7 +441,7 @@ Changes apply immediately and are saved in local `localStorage`. The widget rest
 
 ## 🔐 Privacy
 
-Codex LED Widget is designed to be local, lightweight, and privacy-friendly.
+Codex Quota Widget is designed to be local, lightweight, and privacy-friendly.
 
 * It uses your existing local Codex sign-in state.
 * It does **not** ask you to enter a token.

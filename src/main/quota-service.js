@@ -175,7 +175,7 @@ function requestRateLimits() {
         await send("initialize", {
           clientInfo: {
             name: "codex-quota-widget",
-            title: "Codex LED Widget",
+            title: "Codex Quota Widget",
             version: "1.0.0"
           },
           capabilities: null

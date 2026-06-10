@@ -117,6 +117,7 @@ function createWindow() {
     }
     updateWindowHitTestShape();
     mainWindow.show();
+    applyAlwaysOnTop();
   });
   mainWindow.on("resize", () => {
     updateWindowHitTestShape();
@@ -859,12 +860,23 @@ function rebuildTrayMenu() {
 
 function setAlwaysOnTop(value) {
   isAlwaysOnTop = Boolean(value);
-  if (mainWindow) {
-    mainWindow.setAlwaysOnTop(isAlwaysOnTop);
+  applyAlwaysOnTop();
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("window:alwaysOnTopChanged", isAlwaysOnTop);
   }
   rebuildTrayMenu();
   return isAlwaysOnTop;
+}
+
+function applyAlwaysOnTop() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  if (isAlwaysOnTop) {
+    mainWindow.setAlwaysOnTop(true, "screen-saver");
+    mainWindow.moveTop();
+  } else {
+    mainWindow.setAlwaysOnTop(false);
+  }
 }
 
 function toggleWindow() {
@@ -886,6 +898,7 @@ function showWindowFromTray() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.setSkipTaskbar(true);
   mainWindow.show();
+  applyAlwaysOnTop();
   mainWindow.focus();
 }
 
