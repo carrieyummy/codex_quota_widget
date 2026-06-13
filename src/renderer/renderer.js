@@ -4,13 +4,11 @@ const i18n = {
     loading: "读取中",
     ready: "已更新",
     warning: "接近用尽",
-    danger: "额度用尽",
+    danger: "额度告急",
+    empty: "额度用尽",
     error: "读取失败",
-    primary: "5 小时限额",
-    secondary: "7 天限额",
-    limitSuffix: "限额",
-    remaining: "剩余",
-    resetTime: "重置时间",
+    primary: "5小时",
+    secondary: "7天",
     palette: "调色盘",
     bgColor: "背景色",
     textColor: "字体色",
@@ -34,13 +32,11 @@ const i18n = {
     loading: "Loading",
     ready: "Updated",
     warning: "Running low",
-    danger: "Quota empty",
+    danger: "Critical",
+    empty: "Quota empty",
     error: "Read failed",
-    primary: "5h limit",
-    secondary: "7d limit",
-    limitSuffix: "Quota",
-    remaining: "Remaining",
-    resetTime: "Reset",
+    primary: "5h",
+    secondary: "7d",
     palette: "Theme",
     bgColor: "Color",
     textColor: "Text",
@@ -240,17 +236,23 @@ function setState(state, message) {
 }
 
 function stateForRemaining(percent) {
-  if (percent <= 0) return "danger";
-  if (percent < 10) return "warning";
+  if (percent <= 0) return "empty";
+  if (percent < 10) return "danger";
+  if (percent < 30) return "warning";
   return "ready";
+}
+
+function getWindowPercent(window) {
+  if (!window || !Number.isFinite(window.remainingPercent)) return null;
+  return Math.max(0, Math.min(100, Math.round(window.remainingPercent)));
 }
 
 function formatWindowValue(window, resetFormat = "auto") {
   if (!window) return "--";
-  const remaining = Number.isFinite(window.remainingPercent) ? Math.round(window.remainingPercent) : null;
+  const remaining = getWindowPercent(window);
   const reset = formatResetTime(window.resetsAt, resetFormat);
-  const percentPart = remaining === null ? "--" : `${t("remaining")} ${remaining}%`;
-  return reset ? `${percentPart} (${t("resetTime")}: ${reset})` : percentPart;
+  const percentPart = remaining === null ? "--" : `${remaining}%`;
+  return reset ? `${percentPart} ${reset}` : percentPart;
 }
 
 function formatResetTime(iso, resetFormat = "auto") {
@@ -334,7 +336,7 @@ function renderQuotaList(limits) {
     if (limit.limitId !== "codex") group.classList.add("secondary-limit");
 
     const title = document.createElement("h2");
-    title.textContent = `${limit.limitName || t("unknown")} ${t("limitSuffix")}`;
+    title.textContent = limit.limitName || t("unknown");
     group.appendChild(title);
 
     group.appendChild(createQuotaRow(t("primary"), limit.primary, "primary"));
@@ -346,16 +348,37 @@ function renderQuotaList(limits) {
 function createQuotaRow(label, window, type) {
   const row = document.createElement("div");
   row.className = `quota-row ${type}`;
+  const percent = getWindowPercent(window);
+  const quotaState = percent === null ? "unknown" : stateForRemaining(percent);
+  row.dataset.quotaState = quotaState;
 
   const labelEl = document.createElement("span");
   labelEl.className = "quota-label";
   labelEl.textContent = `${label}:`;
 
+  const progressEl = document.createElement("div");
+  progressEl.className = "quota-progress";
+  progressEl.style.setProperty("--quota-percent", String(percent ?? 0));
+  progressEl.style.setProperty("--quota-progress", `${percent ?? 0}%`);
+  progressEl.setAttribute("role", "progressbar");
+  progressEl.setAttribute("aria-label", label);
+  progressEl.setAttribute("aria-valuemin", "0");
+  progressEl.setAttribute("aria-valuemax", "100");
+  if (percent === null) {
+    progressEl.setAttribute("aria-valuetext", "--");
+  } else {
+    progressEl.setAttribute("aria-valuenow", String(percent));
+  }
+
+  const progressFillEl = document.createElement("span");
+  progressFillEl.className = "quota-progress-fill";
+  progressEl.appendChild(progressFillEl);
+
   const valueEl = document.createElement("strong");
   valueEl.className = "quota-value";
   valueEl.textContent = formatWindowValue(window, type === "primary" ? "time" : "auto");
 
-  row.append(labelEl, valueEl);
+  row.append(labelEl, progressEl, valueEl);
   return row;
 }
 

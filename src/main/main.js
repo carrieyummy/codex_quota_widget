@@ -40,11 +40,11 @@ const windowShape = {
 // 窗口尺寸和贴边行为的主要调参入口。
 const windowLimits = {
   // 完整窗口默认宽度；首次启动或状态文件无效时使用。
-  defaultWidth: 275,
+  defaultWidth: 264,
   // 完整窗口手动调整宽度的下限。
   minWidth: 260,
   // 完整窗口手动调整宽度的上限。
-  maxWidth: 320,
+  maxWidth: 300,
   // 同时显示 Codex + Spark 的贴边缩略条宽度。需要留够两个 5 小时重置时间。
   dockFullWidth: 350,
   // 只显示 Codex 限额时的贴边缩略条宽度。调小会更省空间，但要留够 HH:mm Codex: 100% 14:44 100%。

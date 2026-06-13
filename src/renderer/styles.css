@@ -13,7 +13,8 @@
   /* 预留的更强强调色。 */
   --accent-strong: #29d88b;
   /* 危险/警告基础色，方便后续统一引用。 */
-  --danger: #ff5f72;
+  --danger: #ff667a;
+  --error: #72000f;
   --warning: #ffd166;
   /* 毛玻璃背景 RGB；调色盘实际改的是这个变量。 */
   --glass-rgb: 255, 255, 255;
@@ -70,11 +71,17 @@ body {
 }
 
 /* 危险/错误状态：改变强调色，圆点和背景光斑会跟着变红。 */
-body[data-state="danger"],
-body[data-state="error"] {
+body[data-state="danger"] {
   --accent: #ff667a;
   --accent-soft: rgba(255, 102, 122, 0.36);
   --accent-strong: #ff4d66;
+}
+
+body[data-state="empty"],
+body[data-state="error"] {
+  --accent: #72000f;
+  --accent-soft: rgba(114, 0, 15, 0.44);
+  --accent-strong: #4d000a;
 }
 
 /* 警告状态：改变强调色，圆点和背景光斑会跟着变黄。 */
@@ -618,9 +625,10 @@ body[data-dock-edge="top"] .widget::before {
 .quota-row {
   /* 两列布局：左侧限额名称，右侧百分比/重置时间。 */
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  align-items: baseline;
-  gap: 8px;
+  grid-template-columns: 36px 120px 75px;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
   min-height: 14px;
   font-size: 11px;
   line-height: 1.15;
@@ -633,14 +641,66 @@ body[data-dock-edge="top"] .widget::before {
   white-space: nowrap;
 }
 
+.quota-row[data-quota-state="ready"] {
+  --quota-accent: #55e6a5;
+  --quota-accent-soft: rgba(85, 230, 165, 0.32);
+}
+
+.quota-row[data-quota-state="warning"] {
+  --quota-accent: #ffd166;
+  --quota-accent-soft: rgba(255, 209, 102, 0.34);
+}
+
+.quota-row[data-quota-state="danger"] {
+  --quota-accent: #ff667a;
+  --quota-accent-soft: rgba(255, 102, 122, 0.36);
+}
+
+.quota-row[data-quota-state="empty"] {
+  --quota-accent: #72000f;
+  --quota-accent-soft: rgba(114, 0, 15, 0.44);
+}
+
+.quota-row[data-quota-state="unknown"] {
+  --quota-accent: var(--muted);
+  --quota-accent-soft: rgba(255, 255, 255, 0.1);
+}
+
+.quota-progress {
+  position: relative;
+  min-width: 0;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14);
+}
+
+.quota-progress-fill {
+  display: block;
+  width: var(--quota-progress);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--quota-accent);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 8px var(--quota-accent-soft);
+  transition: width 180ms ease;
+}
+
 .quota-value {
   /* 右侧值。使用等宽字体便于百分比和时间对齐。 */
   min-width: 0;
   overflow: hidden;
-  color: var(--text);
+  color: var(--muted);
   font-family: Consolas, "SFMono-Regular", "Microsoft YaHei UI", monospace;
   font-size: 11px;
   font-weight: 800;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
