@@ -31,10 +31,10 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 ## ✨ 功能特点
 
 - 🟢 **红绿灯额度状态**
-  - 绿色：剩余额度大于等于 30%
-  - 黄色：剩余额度小于 30%，但大于等于 10%
-  - 红色：剩余额度小于 10%，但大于 0
-  - 深红色：剩余额度为 0，或额度读取失败
+  - <img src="assets/color-ready.svg" width="14" height="14" alt="#55e6a5" /> 绿色：剩余额度大于等于 30%
+  - <img src="assets/color-warning.svg" width="14" height="14" alt="#ffd166" /> 黄色：剩余额度小于 30%，但大于等于 10%
+  - <img src="assets/color-danger.svg" width="14" height="14" alt="#ff667a" /> 红色：剩余额度小于 10%，但大于 0
+  - <img src="assets/color-empty.svg" width="14" height="14" alt="#72000f" /> 深红色：剩余额度为 0，或额度读取失败
 
 - 🪟 **液态玻璃悬浮窗口**
   - 透明桌面小组件
@@ -273,10 +273,10 @@ It uses a transparent liquid-glass interface and a simple red / yellow / green L
 
 * 🟢 **LED quota indicator**
 
-  * Green: remaining quota is 30% or higher
-  * Yellow: remaining quota is below 30% and 10% or higher
-  * Red: remaining quota is below 10% and above 0
-  * Dark red: remaining quota is 0, or the quota read failed
+  * <img src="assets/color-ready.svg" width="14" height="14" alt="#55e6a5" /> Green: remaining quota is 30% or higher
+  * <img src="assets/color-warning.svg" width="14" height="14" alt="#ffd166" /> Yellow: remaining quota is below 30% and 10% or higher
+  * <img src="assets/color-danger.svg" width="14" height="14" alt="#ff667a" /> Red: remaining quota is below 10% and above 0
+  * <img src="assets/color-empty.svg" width="14" height="14" alt="#72000f" /> Dark red: remaining quota is 0, or the quota read failed
 
 * 🪟 **Liquid-glass desktop widget**
 

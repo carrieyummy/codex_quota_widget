@@ -1,6 +1,6 @@
 {
   "name": "codex-quota-widget",
-  "version": "1.0.4",
+  "version": "1.0.3",
   "description": "Windows desktop LED widget for showing local Codex usage quota.",
   "main": "src/main/main.js",
   "author": "Codex Quota Widget Contributors",
