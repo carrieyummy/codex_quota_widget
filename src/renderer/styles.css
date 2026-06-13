@@ -63,6 +63,7 @@
   --ui-40: 40px;
   --ui-46: 46px;
   --quota-label-column: 36px;
+  --quota-progress-column: 120px;
   /* 贴边状态下圆点自身左右外边距；通常只做微调，主位置优先改 --dock-padding。 */
   --dock-light-margin-left: 0px;
   --dock-light-margin-right: 0px;
@@ -262,8 +263,11 @@ body[data-state="warning"] {
   z-index: 2;
   display: flex;
   align-items: flex-start;
+  /* 左侧品牌区和右侧按钮组之间的主要空白来自 space-between；窗口越宽，中间自动空白越大。 */
   justify-content: space-between;
-  gap: var(--ui-8);
+  /* gap: var(--ui-8); */
+  /* 左侧品牌区和右侧按钮组之间的最小间距；右侧按钮之间的间距见 .window-actions 的 gap。 */
+  gap: var(--ui-1);
   min-height: var(--ui-28);
 }
 
@@ -323,6 +327,7 @@ body[data-state="warning"] {
   align-items: flex-start;
   flex-wrap: wrap;
   justify-content: flex-end;
+  /* 右侧各按钮之间的间距；不要用这里调整品牌区和按钮组之间的空白。 */
   gap: var(--ui-4);
   min-height: var(--ui-20);
   -webkit-app-region: no-drag;
@@ -647,10 +652,10 @@ body[data-dock-edge="top"] .widget::before {
 .quota-row {
   /* 两列布局：左侧限额名称，右侧百分比/重置时间。 */
   display: grid;
-  grid-template-columns: var(--quota-label-column) 120px 170px; /* 已经手动优化，不要改动 */
+  grid-template-columns: var(--quota-label-column) var(--quota-progress-column) 170px; /* 已经手动优化，不要改动 */
   align-items: center;
   justify-content: start; /* 将百分比和重置时间向左对齐 */
-  gap: 6px;
+  gap: 16px;
   padding-right: 6px;
   min-height: 14px; /* 确保行高足够显示所有内容 */
   font-size: var(--font-size-11);
@@ -696,7 +701,7 @@ body[data-dock-edge="top"] .widget::before {
   height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(127, 127, 127, 0.12);
   box-shadow: none;
 }
 

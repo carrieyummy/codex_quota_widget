@@ -202,7 +202,8 @@ function applyScaledLengthVariables(fontScale) {
     "--ui-28": 28,
     "--ui-40": 40,
     "--ui-46": 46,
-    "--quota-label-column": 36
+    "--quota-label-column": 36,
+    "--quota-progress-column": 120
   };
 
   for (const [name, basePx] of Object.entries(scaledLengths)) {
