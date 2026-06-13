@@ -31,9 +31,10 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 ## ✨ 功能特点
 
 - 🟢 **红绿灯额度状态**
-  - 绿色：剩余额度大于等于 10%
-  - 黄色：剩余额度小于 10%，但仍大于 0
-  - 红色：剩余额度为 0 或读取失败
+  - 绿色：剩余额度大于等于 30%
+  - 黄色：剩余额度小于 30%，但大于等于 10%
+  - 红色：剩余额度小于 10%，但大于 0
+  - 深红色：剩余额度为 0，或额度读取失败
 
 - 🪟 **液态玻璃悬浮窗口**
   - 透明桌面小组件
@@ -77,30 +78,6 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 ---
 
-## 📸 截图预览
-
-<p align="center">
-  <img src="assets/01.png" width="260" />
-  <img src="assets/02.png" width="260" />
-</p>
-
-<p align="center">
-  <img src="assets/03.png" width="260" />
-  <img src="assets/04.png" width="260" />
-</p>
-
-<p align="center">
-  <img src="assets/05.png" width="260" />
-  <img src="assets/06.png" width="260" />
-</p>
-
-<p align="center">
-  <img src="assets/01_Label.png" width="360" />
-  <img src="assets/02_Label.png" width="360" />
-</p>
-
----
-
 ## 🚀 下载
 
 请前往 **Releases** 页面下载最新版 Windows `.exe` 文件：
@@ -135,9 +112,10 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 | 颜色 | 含义 |
 |---|---|
-| 🟢 绿色 | 剩余额度大于等于 10% |
-| 🟡 黄色 | 剩余额度小于 10%，但大于 0 |
-| 🔴 红色 | 剩余额度为 0，或额度读取失败 |
+| <img src="assets/color-ready.svg" width="14" height="14" alt="#55e6a5" /> 绿色 | 剩余额度大于等于 30% |
+| <img src="assets/color-warning.svg" width="14" height="14" alt="#ffd166" /> 黄色 | 剩余额度小于 30%，但大于等于 10% |
+| <img src="assets/color-danger.svg" width="14" height="14" alt="#ff667a" /> 红色 | 剩余额度小于 10%，但大于 0 |
+| <img src="assets/color-empty.svg" width="14" height="14" alt="#72000f" /> 深红色 | 剩余额度为 0，或额度读取失败 |
 
 额度状态会根据本机可读取到的 Codex 使用数据进行计算。窗口中会显示 5 小时限额、7 天限额和对应的重置时间；如果存在多个限额分组，也会一起显示。
 
@@ -221,7 +199,7 @@ npm run build
 
 ```txt
 codex_quota_widget/
-├─ assets/              # 截图和图片资源
+├─ assets/              # README 图片资源
 ├─ src/
 │  ├─ main/             # Electron 主进程和额度读取逻辑
 │  └─ renderer/         # 小组件界面、样式和交互
@@ -295,9 +273,10 @@ It uses a transparent liquid-glass interface and a simple red / yellow / green L
 
 * 🟢 **LED quota indicator**
 
-  * Green: remaining quota is 10% or higher
-  * Yellow: remaining quota is below 10% and above 0
-  * Red: remaining quota is 0, or the quota read failed
+  * Green: remaining quota is 30% or higher
+  * Yellow: remaining quota is below 30% and 10% or higher
+  * Red: remaining quota is below 10% and above 0
+  * Dark red: remaining quota is 0, or the quota read failed
 
 * 🪟 **Liquid-glass desktop widget**
 
@@ -349,30 +328,6 @@ It uses a transparent liquid-glass interface and a simple red / yellow / green L
 
 ---
 
-## 📸 Screenshots
-
-<p align="center">
-  <img src="assets/01.png" width="260" />
-  <img src="assets/02.png" width="260" />
-</p>
-
-<p align="center">
-  <img src="assets/03.png" width="260" />
-  <img src="assets/04.png" width="260" />
-</p>
-
-<p align="center">
-  <img src="assets/05.png" width="260" />
-  <img src="assets/06.png" width="260" />
-</p>
-
-<p align="center">
-  <img src="assets/01_Label.png" width="360" />
-  <img src="assets/02_Label.png" width="360" />
-</p>
-
----
-
 ## 🚀 Download
 
 Download the latest Windows `.exe` from the **Releases** page:
@@ -408,9 +363,10 @@ Current version: `v1.0.3`
 
 | LED Color | Meaning |
 |---|---|
-| 🟢 Green | Remaining quota is 10% or higher |
-| 🟡 Yellow | Remaining quota is below 10% but above 0 |
-| 🔴 Red | Remaining quota is 0, or the quota read failed |
+| <img src="assets/color-ready.svg" width="14" height="14" alt="#55e6a5" /> Green | Remaining quota is 30% or higher |
+| <img src="assets/color-warning.svg" width="14" height="14" alt="#ffd166" /> Yellow | Remaining quota is below 30% and 10% or higher |
+| <img src="assets/color-danger.svg" width="14" height="14" alt="#ff667a" /> Red | Remaining quota is below 10% and above 0 |
+| <img src="assets/color-empty.svg" width="14" height="14" alt="#72000f" /> Dark red | Remaining quota is 0, or the quota read failed |
 
 The remaining quota is calculated from Codex usage data available on your local machine. The widget shows 5h limits, 7d limits, and reset times. If multiple limit groups are available, they are shown together.
 
@@ -492,7 +448,7 @@ The output file will be generated in the `dist` folder.
 
 ```txt
 codex_quota_widget/
-├─ assets/              # Screenshots and images
+├─ assets/              # README image assets
 ├─ src/
 │  ├─ main/             # Electron main process and quota reader
 │  └─ renderer/         # Widget UI, styles, and interactions
