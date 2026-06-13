@@ -15,6 +15,7 @@ let edgeDockMoveTimer;
 let edgeDockHoverTimer;
 let currentLanguage = "zh";
 let latestQuota;
+let currentFontScale = 1;
 let themePanelBaseBounds = null;
 // 贴边收起功能总开关，对应标题栏里的“贴边收起”按钮。
 let edgeDockEnabled = false;
@@ -37,6 +38,12 @@ const windowShape = {
   windowBottomGap: 1
 };
 
+const fontScaleLimits = {
+  defaultScale: 1,
+  minScale: 1,
+  maxScale: 1.8
+};
+
 // 窗口尺寸和贴边行为的主要调参入口。
 const windowLimits = {
   // 完整窗口默认宽度；首次启动或状态文件无效时使用。
@@ -52,14 +59,14 @@ const windowLimits = {
   // 完整窗口可手动缩放到的最小高度。
   minHeight: 74,
   // 完整窗口可手动缩放到的最大高度。
-  maxHeight: 130,
+  maxHeight: 140, /* 已经手动优化，不要改动 */
   // 顶部贴边缩略条高度。只影响缩略态，不影响完整窗口最小高度。
   dockHeight: 15,
   // 完整窗口高度小于等于这个值时，界面只显示 Codex 限额；贴边后也会隐藏 Spark 并使用 dockCodexOnlyWidth。
   codexOnlyHeightThreshold: 100,
   // 完整窗口高度小于等于这个值时，界面只显示 Codex 的主限额。
   primaryOnlyHeightThreshold: 83,
-  themePanelExtraHeight: 92,
+  themePanelExtraHeight: 120,
   // 距离屏幕/工作区上边缘多少像素以内触发顶部贴边收起。
   edgeThreshold: 32,
   // 从顶部缩略条恢复完整窗口时，向屏幕内部偏移的距离。
@@ -72,6 +79,65 @@ const defaultBounds = {
   height: windowLimits.maxHeight
 };
 
+function normalizeFontScale(value) {
+  const scale = Number(value);
+  return clampNumber(Number.isFinite(scale) ? scale : fontScaleLimits.defaultScale, fontScaleLimits.minScale, fontScaleLimits.maxScale);
+}
+
+function getFontScaleStatePath() {
+  return path.join(app.getPath("userData"), "font-scale.json");
+}
+
+function loadFontScale() {
+  try {
+    const state = JSON.parse(fs.readFileSync(getFontScaleStatePath(), "utf8"));
+    return normalizeFontScale(state.fontScale);
+  } catch {
+    return fontScaleLimits.defaultScale;
+  }
+}
+
+function saveFontScale() {
+  try {
+    fs.mkdirSync(app.getPath("userData"), { recursive: true });
+    fs.writeFileSync(getFontScaleStatePath(), `${JSON.stringify({ fontScale: currentFontScale }, null, 2)}\n`, "utf8");
+  } catch {
+    // Failing to persist font scale should not affect quota display.
+  }
+}
+
+function getActiveWindowLimits() {
+  const scale = normalizeFontScale(currentFontScale);
+
+  return {
+    ...windowLimits,
+    maxWidth: Math.round(windowLimits.maxWidth * scale),
+    maxHeight: Math.round(windowLimits.maxHeight * scale),
+    dockFullWidth: Math.round(windowLimits.dockFullWidth * scale),
+    dockCodexOnlyWidth: Math.round(windowLimits.dockCodexOnlyWidth * scale),
+    dockHeight: Math.round(windowLimits.dockHeight * scale),
+    themePanelExtraHeight: Math.round(windowLimits.themePanelExtraHeight * scale)
+  };
+}
+
+function getWindowMaximumSize() {
+  const limits = getActiveWindowLimits();
+
+  return {
+    width: Math.max(limits.maxWidth, limits.dockFullWidth),
+    height: limits.maxHeight + limits.themePanelExtraHeight
+  };
+}
+
+function updateWindowSizeLimits() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const limits = getActiveWindowLimits();
+  const maximum = getWindowMaximumSize();
+
+  mainWindow.setMinimumSize(Math.min(limits.dockCodexOnlyWidth, limits.minWidth), limits.dockHeight);
+  mainWindow.setMaximumSize(maximum.width, maximum.height);
+}
+
 const trayStates = {
   loading: { color: [156, 168, 184], label: "读取中" },
   ready: { color: [85, 230, 165], label: "额度正常" },
@@ -82,15 +148,17 @@ const trayStates = {
 
 function createWindow() {
   const savedBounds = loadWindowBounds();
+  const limits = getActiveWindowLimits();
+  const maximum = getWindowMaximumSize();
   mainWindow = new BrowserWindow({
     width: savedBounds.width,
     height: savedBounds.height,
     x: savedBounds.x,
     y: savedBounds.y,
-    minWidth: Math.min(windowLimits.dockCodexOnlyWidth, windowLimits.minWidth),
-    maxWidth: Math.max(windowLimits.maxWidth, windowLimits.dockFullWidth),
-    minHeight: windowLimits.dockHeight,
-    maxHeight: windowLimits.maxHeight + windowLimits.themePanelExtraHeight,
+    minWidth: Math.min(limits.dockCodexOnlyWidth, limits.minWidth),
+    maxWidth: maximum.width,
+    minHeight: limits.dockHeight,
+    maxHeight: maximum.height,
     frame: false,
     transparent: true,
     resizable: false,
@@ -180,8 +248,9 @@ function loadWindowBounds() {
 // 返回合法宽高和可用坐标；如果保存位置已完全不可见，则丢弃坐标。
 function sanitizeWindowBounds(state) {
   if (!state || typeof state !== "object") return null;
-  const width = clampNumber(Math.round(Number(state.width) || defaultBounds.width), windowLimits.minWidth, windowLimits.maxWidth);
-  const height = clampNumber(Math.round(Number(state.height) || defaultBounds.height), windowLimits.minHeight, windowLimits.maxHeight);
+  const limits = getActiveWindowLimits();
+  const width = clampNumber(Math.round(Number(state.width) || defaultBounds.width), limits.minWidth, limits.maxWidth);
+  const height = clampNumber(Math.round(Number(state.height) || defaultBounds.height), limits.minHeight, limits.maxHeight);
   const x = Number.isFinite(state.x) ? Math.round(state.x) : undefined;
   const y = Number.isFinite(state.y) ? Math.round(state.y) : undefined;
   const hasPosition = Number.isFinite(x) && Number.isFinite(y);
@@ -244,8 +313,9 @@ function getPersistableWindowBounds() {
 // 参数 bounds 可以来自 Electron getBounds() 或保存文件。
 // 返回 min/max 限制后的宽高；坐标存在时保留。
 function normalizeExpandedBounds(bounds) {
-  const height = clampNumber(Math.round(Number(bounds?.height) || defaultBounds.height), windowLimits.minHeight, windowLimits.maxHeight);
-  const width = clampNumber(Math.round(Number(bounds?.width) || defaultBounds.width), windowLimits.minWidth, windowLimits.maxWidth);
+  const limits = getActiveWindowLimits();
+  const height = clampNumber(Math.round(Number(bounds?.height) || defaultBounds.height), limits.minHeight, limits.maxHeight);
+  const width = clampNumber(Math.round(Number(bounds?.width) || defaultBounds.width), limits.minWidth, limits.maxWidth);
   const normalized = {
     width,
     height
@@ -271,11 +341,12 @@ function setWindowBounds(bounds) {
   if (edgeDockState) return mainWindow.getBounds();
   const current = mainWindow.getBounds();
   const requestedHeight = Number.isFinite(bounds.height) ? Math.round(bounds.height) : current.height;
+  const limits = getActiveWindowLimits();
   const nextBounds = {
     x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : current.x,
     y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : current.y,
-    width: clampNumber(Math.round(Number(bounds.width) || current.width), windowLimits.minWidth, windowLimits.maxWidth),
-    height: clampNumber(requestedHeight, windowLimits.minHeight, windowLimits.maxHeight)
+    width: clampNumber(Math.round(Number(bounds.width) || current.width), limits.minWidth, limits.maxWidth),
+    height: clampNumber(requestedHeight, limits.minHeight, limits.maxHeight)
   };
 
   applyWindowBounds(nextBounds);
@@ -296,7 +367,8 @@ function openThemePanelWindowExpansion() {
   const currentBounds = mainWindow.getBounds();
   themePanelBaseBounds = normalizeExpandedBounds(currentBounds);
   const { workArea } = screen.getDisplayMatching(currentBounds);
-  const expandedHeight = Math.min(workArea.height, themePanelBaseBounds.height + windowLimits.themePanelExtraHeight);
+  const limits = getActiveWindowLimits();
+  const expandedHeight = Math.min(workArea.height, themePanelBaseBounds.height + limits.themePanelExtraHeight);
   const expandedBounds = {
     ...currentBounds,
     height: expandedHeight
@@ -476,10 +548,11 @@ function getDockBounds(restoreBounds, workArea) {
 // 根据收起前的窗口高度决定贴边条宽度。
 // 当完整窗口已经低到只显示 Codex 限额时，贴边条也不预留 Spark 的空间。
 function getDockWidth(restoreBounds) {
+  const limits = getActiveWindowLimits();
   if (isCodexOnlyHeight(restoreBounds)) {
-    return windowLimits.dockCodexOnlyWidth;
+    return limits.dockCodexOnlyWidth;
   }
-  return windowLimits.dockFullWidth;
+  return limits.dockFullWidth;
 }
 
 // 高度阈值只在 windowLimits.codexOnlyHeightThreshold 配置；渲染层通过 IPC 读取。
@@ -490,7 +563,7 @@ function isCodexOnlyHeight(bounds) {
 
 // 返回缩略条高度。需要调缩略条厚度时改 windowLimits.dockHeight。
 function getDockHeight() {
-  return windowLimits.dockHeight;
+  return getActiveWindowLimits().dockHeight;
 }
 
 // 拖到左、右、下边缘时只夹紧到工作区内，不切换为缩略显示。
@@ -698,7 +771,28 @@ function getEdgeDockState() {
 }
 
 function getWindowLimits() {
-  return { ...windowLimits };
+  return {
+    ...getActiveWindowLimits(),
+    fontScale: currentFontScale
+  };
+}
+
+function setFontScale(value) {
+  currentFontScale = normalizeFontScale(value);
+  saveFontScale();
+  updateWindowSizeLimits();
+
+  if (mainWindow && !mainWindow.isDestroyed() && !themePanelBaseBounds && !edgeDockState) {
+    const currentBounds = mainWindow.getBounds();
+    const nextBounds = clampBoundsToWorkArea(normalizeExpandedBounds(currentBounds), screen.getDisplayMatching(currentBounds).workArea);
+    if (nextBounds.width !== currentBounds.width || nextBounds.height !== currentBounds.height || nextBounds.x !== currentBounds.x || nextBounds.y !== currentBounds.y) {
+      applyWindowBounds(nextBounds);
+      rememberNormalBounds();
+      scheduleSaveWindowBounds();
+    }
+  }
+
+  return getWindowLimits();
 }
 
 function sendEdgeDockState() {
@@ -903,6 +997,7 @@ function showWindowFromTray() {
 }
 
 app.whenReady().then(() => {
+  currentFontScale = loadFontScale();
   createWindow();
   createTray();
 
@@ -923,6 +1018,7 @@ app.whenReady().then(() => {
   ipcMain.handle("window:bounds:get", () => mainWindow?.getBounds());
   ipcMain.handle("window:bounds:set", (_event, bounds) => setWindowBounds(bounds));
   ipcMain.handle("window:themePanel:setOpen", (_event, value) => setThemePanelOpen(value));
+  ipcMain.handle("window:fontScale:set", (_event, value) => setFontScale(value));
   ipcMain.handle("window:alwaysOnTop:get", () => isAlwaysOnTop);
   ipcMain.handle("window:alwaysOnTop:set", (_event, value) => setAlwaysOnTop(value));
   ipcMain.handle("window:edgeDock:get", () => getEdgeDockState());

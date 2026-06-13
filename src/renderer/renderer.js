@@ -13,6 +13,7 @@ const i18n = {
     bgColor: "背景色",
     textColor: "字体色",
     opacity: "透明度",
+    fontScale: "字体",
     refresh: "刷新",
     hide: "隐藏",
     exit: "退出",
@@ -41,6 +42,7 @@ const i18n = {
     bgColor: "Color",
     textColor: "Text",
     opacity: "Opacity",
+    fontScale: "Font",
     refresh: "Refresh",
     hide: "Hide",
     exit: "Exit",
@@ -65,6 +67,7 @@ let refreshTimer = null;
 let latestQuota = null;
 let windowLimits = null;
 let lockedWidgetHeight = null;
+let appliedFontScale = null;
 
 const THEME_CONFIG = {
   // 默认背景色；本地没有保存主题时使用。
@@ -77,6 +80,10 @@ const THEME_CONFIG = {
   minOpacity: 0,
   // 透明度滑块和运行时校验共用的最高值。
   maxOpacity: 95,
+  defaultFontScale: 1,
+  minFontScale: 1,
+  maxFontScale: 1.8,
+  fontScaleStep: 0.05,
   // 背景渐变较实一端比当前透明度额外增加的 alpha。
   strongAlphaOffset: 0.12,
   // 背景渐变较实一端的 alpha 上限，避免高透明度时完全糊成实色。
@@ -94,9 +101,11 @@ const els = {
   bgColorInput: document.getElementById("bgColorInput"),
   textColorInput: document.getElementById("textColorInput"),
   opacityInput: document.getElementById("opacityInput"),
+  fontScaleInput: document.getElementById("fontScaleInput"),
   bgColorLabel: document.getElementById("bgColorLabel"),
   textColorLabel: document.getElementById("textColorLabel"),
   opacityLabel: document.getElementById("opacityLabel"),
+  fontScaleLabel: document.getElementById("fontScaleLabel"),
   langBtn: document.getElementById("langBtn"),
   pinBtn: document.getElementById("pinBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
@@ -126,6 +135,7 @@ function applyLabels() {
   els.bgColorLabel.textContent = t("bgColor");
   els.textColorLabel.textContent = t("textColor");
   els.opacityLabel.textContent = t("opacity");
+  els.fontScaleLabel.textContent = t("fontScale");
   els.refreshBtn.title = t("refresh");
   els.refreshBtn.setAttribute("aria-label", t("refresh"));
   els.closeBtn.title = t("hide");
@@ -142,7 +152,8 @@ function loadTheme() {
   return {
     backgroundColor,
     textColor: localStorage.getItem("theme.textColor") || THEME_CONFIG.defaultTextColor,
-    opacity: normalizeOpacity(localStorage.getItem("theme.backgroundOpacity"))
+    opacity: normalizeOpacity(localStorage.getItem("theme.backgroundOpacity")),
+    fontScale: normalizeFontScale(localStorage.getItem("theme.fontScale"))
   };
 }
 
@@ -150,12 +161,14 @@ function saveTheme(theme) {
   localStorage.setItem("theme.backgroundColor", theme.backgroundColor);
   localStorage.setItem("theme.textColor", theme.textColor);
   localStorage.setItem("theme.backgroundOpacity", String(theme.opacity));
+  localStorage.setItem("theme.fontScale", String(theme.fontScale));
 }
 
 function applyTheme(theme) {
   const backgroundRgb = hexToRgb(theme.backgroundColor) || hexToRgb(THEME_CONFIG.defaultBackgroundColor);
   const textRgb = hexToRgb(theme.textColor) || hexToRgb(THEME_CONFIG.defaultTextColor);
   const opacity = normalizeOpacity(theme.opacity);
+  const fontScale = normalizeFontScale(theme.fontScale);
   const alpha = opacity / 100;
 
   document.documentElement.style.setProperty("--glass-rgb", `${backgroundRgb.r}, ${backgroundRgb.g}, ${backgroundRgb.b}`);
@@ -163,17 +176,72 @@ function applyTheme(theme) {
   document.documentElement.style.setProperty("--glass-alpha-strong", Math.min(THEME_CONFIG.maxStrongAlpha, alpha + THEME_CONFIG.strongAlphaOffset).toFixed(2));
   document.documentElement.style.setProperty("--text", `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.94)`);
   document.documentElement.style.setProperty("--muted", `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.68)`);
+  document.documentElement.style.setProperty("--font-scale", fontScale.toFixed(2));
+  applyScaledLengthVariables(fontScale);
+  syncFontScaleToWindow(fontScale);
+}
+
+function applyScaledLengthVariables(fontScale) {
+  const scale = normalizeFontScale(fontScale);
+  const scaledLengths = {
+    "--font-size-10": 10,
+    "--font-size-11": 11,
+    "--font-size-14": 14,
+    "--ui-1": 1,
+    "--ui-2": 2,
+    "--ui-4": 4,
+    "--ui-5": 5,
+    "--ui-6": 6,
+    "--ui-7": 7,
+    "--ui-8": 8,
+    "--ui-11": 11,
+    "--ui-14": 14,
+    "--ui-18": 18,
+    "--ui-20": 20,
+    "--ui-26": 26,
+    "--ui-28": 28,
+    "--ui-40": 40,
+    "--ui-46": 46,
+    "--quota-label-column": 36
+  };
+
+  for (const [name, basePx] of Object.entries(scaledLengths)) {
+    document.documentElement.style.setProperty(name, `${(basePx * scale).toFixed(2)}px`);
+  }
+}
+
+function syncFontScaleToWindow(fontScale) {
+  const nextFontScale = normalizeFontScale(fontScale);
+  if (appliedFontScale === nextFontScale) return;
+
+  appliedFontScale = nextFontScale;
+  window.codexQuota?.setFontScale?.(nextFontScale)
+    .then((limits) => {
+      if (!limits) return;
+      windowLimits = limits;
+      updateLimitLayout();
+    })
+    .catch(() => {});
 }
 
 function configureThemeControls() {
   els.opacityInput.min = String(THEME_CONFIG.minOpacity);
   els.opacityInput.max = String(THEME_CONFIG.maxOpacity);
   els.opacityInput.value = String(THEME_CONFIG.defaultOpacity);
+  els.fontScaleInput.min = String(THEME_CONFIG.minFontScale);
+  els.fontScaleInput.max = String(THEME_CONFIG.maxFontScale);
+  els.fontScaleInput.step = String(THEME_CONFIG.fontScaleStep);
+  els.fontScaleInput.value = String(THEME_CONFIG.defaultFontScale);
 }
 
 function normalizeOpacity(value) {
   const opacity = Number(value);
   return clampNumber(Number.isFinite(opacity) ? opacity : THEME_CONFIG.defaultOpacity, THEME_CONFIG.minOpacity, THEME_CONFIG.maxOpacity);
+}
+
+function normalizeFontScale(value) {
+  const scale = Number(value);
+  return clampNumber(Number.isFinite(scale) ? scale : THEME_CONFIG.defaultFontScale, THEME_CONFIG.minFontScale, THEME_CONFIG.maxFontScale);
 }
 
 function clampNumber(value, min, max) {
@@ -200,10 +268,12 @@ function updateThemeFromControls() {
   const theme = {
     backgroundColor: els.bgColorInput.value,
     textColor: els.textColorInput.value,
-    opacity: normalizeOpacity(els.opacityInput.value)
+    opacity: normalizeOpacity(els.opacityInput.value),
+    fontScale: normalizeFontScale(els.fontScaleInput.value)
   };
 
   els.opacityInput.value = String(theme.opacity);
+  els.fontScaleInput.value = String(theme.fontScale);
   applyTheme(theme);
   saveTheme(theme);
 }
@@ -426,6 +496,7 @@ async function bootstrap() {
   els.bgColorInput.value = theme.backgroundColor;
   els.textColorInput.value = theme.textColor;
   els.opacityInput.value = String(theme.opacity);
+  els.fontScaleInput.value = String(theme.fontScale);
   applyTheme(theme);
   applyLabels();
 
@@ -452,6 +523,7 @@ async function bootstrap() {
   els.bgColorInput.addEventListener("input", updateBackgroundTheme);
   els.textColorInput.addEventListener("input", updateThemeFromControls);
   els.opacityInput.addEventListener("input", updateThemeFromControls);
+  els.fontScaleInput.addEventListener("input", updateThemeFromControls);
   els.themeOverlay.addEventListener("pointerdown", closeThemePanel);
   document.addEventListener("pointerdown", closeThemePanelOnMenuOutsideClick, true);
   els.refreshBtn.addEventListener("click", refreshQuota);
@@ -638,10 +710,15 @@ function updateThemePanelPosition() {
   const buttonRect = els.paletteBtn.getBoundingClientRect();
   const panelWidth = Math.min(170, Math.max(0, window.innerWidth - 16));
   const panelLeft = clampNumber(buttonRect.left + buttonRect.width / 2 - panelWidth / 2, 8, Math.max(8, window.innerWidth - panelWidth - 8));
-  const panelTop = buttonRect.bottom + 6;
+  const panelTop = buttonRect.bottom + getScaledLength("--ui-6", 6);
 
   document.documentElement.style.setProperty("--theme-panel-left", `${Math.round(panelLeft)}px`);
   document.documentElement.style.setProperty("--theme-panel-top", `${Math.round(panelTop)}px`);
+}
+
+function getScaledLength(name, fallback) {
+  const value = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+  return Number.isFinite(value) ? value : fallback;
 }
 
 async function closeThemePanel() {

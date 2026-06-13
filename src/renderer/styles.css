@@ -43,6 +43,26 @@
   /* 贴边缩略条内各段文字和状态圆点之间的默认间距。 */
   --dock-content-gap: 3px;
   --window-bottom-gap: 1px;
+  --font-scale: 1;
+  --font-size-10: calc(10px * var(--font-scale));
+  --font-size-11: calc(11px * var(--font-scale));
+  --font-size-14: calc(14px * var(--font-scale));
+  --ui-1: 1px;
+  --ui-2: 2px;
+  --ui-4: 4px;
+  --ui-5: 5px;
+  --ui-6: 6px;
+  --ui-7: 7px;
+  --ui-8: 8px;
+  --ui-11: 11px;
+  --ui-14: 14px;
+  --ui-18: 18px;
+  --ui-20: 20px;
+  --ui-26: 26px;
+  --ui-28: 28px;
+  --ui-40: 40px;
+  --ui-46: 46px;
+  --quota-label-column: 36px;
   /* 贴边状态下圆点自身左右外边距；通常只做微调，主位置优先改 --dock-padding。 */
   --dock-light-margin-left: 0px;
   --dock-light-margin-right: 0px;
@@ -243,8 +263,8 @@ body[data-state="warning"] {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  height: 28px;
+  gap: var(--ui-8);
+  min-height: var(--ui-28);
 }
 
 .brand {
@@ -252,7 +272,7 @@ body[data-state="warning"] {
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 7px;
+  gap: var(--ui-7);
 }
 
 /* 状态圆点：完整窗口和贴边收起条都复用这个类，收起态会单独覆盖尺寸。 */
@@ -267,8 +287,8 @@ body[data-state="warning"] {
 
 .traffic-light {
   /* 完整窗口圆点大小。贴边收起见 body[data-edge-dock="docked"] .traffic-light。 */
-  width: 14px;
-  height: 14px;
+  width: var(--ui-14);
+  height: var(--ui-14);
 }
 
 /* loading 态用灰色，避免读取中显示成正常绿色。 */
@@ -282,7 +302,7 @@ body[data-state="warning"] {
 /* 标题文本：品牌名称。 */
 .brand-name {
   display: block;
-  font-size: 14px;
+  font-size: var(--font-size-14);
   font-weight: 800;
   line-height: 1.05;
   white-space: nowrap;
@@ -291,9 +311,9 @@ body[data-state="warning"] {
 /* 标题下方状态文字，例如“已更新 · 15:22”。 */
 .brand-state {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--ui-2);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 700;
 }
 
@@ -301,8 +321,10 @@ body[data-state="warning"] {
 .window-actions {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
-  height: 20px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ui-4);
+  min-height: var(--ui-20);
   -webkit-app-region: no-drag;
 }
 
@@ -311,7 +333,7 @@ button {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  height: 20px;
+  height: var(--ui-20);
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
@@ -319,7 +341,7 @@ button {
   color: var(--text);
   cursor: pointer;
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--font-size-10);
   line-height: 1;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -339,21 +361,21 @@ button:focus-visible {
 
 .icon-button {
   /* 图标按钮固定正方形，避免不同图标改变按钮宽度。 */
-  width: 20px;
+  width: var(--ui-20);
 }
 
 .text-button {
   /* 语言按钮 EN/中 需要比图标按钮稍宽。 */
-  min-width: 26px;
-  padding: 0 5px;
+  min-width: var(--ui-26);
+  padding: 0 var(--ui-5);
   font-weight: 800;
 }
 
 .icon-button svg {
   /* SVG 统一线宽和尺寸，保持按钮风格一致。 */
   display: block;
-  width: 11px;
-  height: 11px;
+  width: var(--ui-11);
+  height: var(--ui-11);
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -409,7 +431,7 @@ body[data-theme-panel="open"] .widget::before {
   flex: 0 0 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 900;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -420,7 +442,7 @@ body[data-theme-panel="open"] .widget::before {
 .dock-percent {
   flex: 0 0 auto;
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 900;
   line-height: 1.1;
   text-align: left;
@@ -431,7 +453,7 @@ body[data-theme-panel="open"] .widget::before {
 .dock-reset {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 800;
   line-height: 1.1;
   white-space: nowrap;
@@ -442,7 +464,7 @@ body[data-theme-panel="open"] .widget::before {
   flex: 0 0 auto;
   overflow: hidden;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 800;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -453,7 +475,7 @@ body[data-theme-panel="open"] .widget::before {
 .dock-separator {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 900;
   line-height: 1.1;
 }
@@ -532,10 +554,10 @@ body[data-dock-edge="top"] .widget::before {
 .theme-panel {
   position: absolute;
   z-index: 4;
-  top: var(--theme-panel-top, 34px);
+  top: var(--theme-panel-top, calc(var(--ui-28) + var(--ui-6)));
   left: var(--theme-panel-left, 8px);
   width: min(170px, calc(100vw - 16px));
-  padding: 7px;
+  padding: var(--ui-7);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   background:
@@ -553,23 +575,23 @@ body[data-dock-edge="top"] .widget::before {
 .theme-field {
   /* 左侧标签固定 52px，右侧控件自适应。 */
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
+  grid-template-columns: var(--ui-46) minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  gap: var(--ui-7);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-10);
   font-weight: 800;
   line-height: 1.1;
 }
 
 .theme-field + .theme-field {
-  margin-top: 6px;
+  margin-top: var(--ui-6);
 }
 
 .theme-field input[type="color"] {
   /* 颜色选择器高度。若面板显得拥挤，可调 height。 */
   width: 100%;
-  height: 20px;
+  height: var(--ui-20);
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 5px;
@@ -580,7 +602,7 @@ body[data-dock-edge="top"] .widget::before {
 .theme-field input[type="range"] {
   /* 透明度滑块颜色跟随状态强调色。 */
   width: 100%;
-  height: 18px;
+  height: var(--ui-18);
   accent-color: var(--accent);
   cursor: pointer;
 }
@@ -589,8 +611,8 @@ body[data-dock-edge="top"] .widget::before {
 .content {
   position: relative;
   z-index: 2;
-  margin-top: 6px;
-  max-height: calc(var(--widget-height, 100vh) - 40px);
+  margin-top: var(--ui-6);
+  max-height: calc(var(--widget-height, 100vh) - var(--ui-40));
   /* 内容多时允许内部滚动，但隐藏滚动条以保持小组件简洁。 */
   overflow: auto;
   scrollbar-width: none;
@@ -616,7 +638,7 @@ body[data-dock-edge="top"] .widget::before {
   /* 模型标题，例如 Codex 限额。 */
   margin: 0;
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--font-size-11);
   font-weight: 800;
   line-height: 1.1;
   white-space: nowrap;
@@ -625,13 +647,13 @@ body[data-dock-edge="top"] .widget::before {
 .quota-row {
   /* 两列布局：左侧限额名称，右侧百分比/重置时间。 */
   display: grid;
-  grid-template-columns: 36px 120px 75px; /* 已经手动优化，不要改动 */
+  grid-template-columns: var(--quota-label-column) 120px 170px; /* 已经手动优化，不要改动 */
   align-items: center;
   justify-content: start; /* 将百分比和重置时间向左对齐 */
   gap: 6px;
   padding-right: 6px;
   min-height: 14px; /* 确保行高足够显示所有内容 */
-  font-size: 11px;
+  font-size: var(--font-size-11);
   font-weight: 800;
   font-variant-numeric: tabular-nums; /* 确保数字显示为等宽字体 */
   line-height: 1.15; /* 行高略高于默认值，使内容更紧凑 */
