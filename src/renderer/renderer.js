@@ -752,7 +752,7 @@ function isSparkGroupVisibleInExpandedWindow(sparkGroup) {
     return false;
   }
 
-  const target = sparkGroup.querySelector("h2") || sparkGroup;
+  const target = sparkGroup.querySelector(".quota-row.primary") || sparkGroup;
   const targetRect = target.getBoundingClientRect();
   const contentRect = document.querySelector(".content")?.getBoundingClientRect();
   const widgetRect = document.querySelector(".widget")?.getBoundingClientRect();

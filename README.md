@@ -84,7 +84,7 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 👉 [前往 Releases 下载](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-当前版本：`v1.0.3`
+当前版本：`v1.0.4`
 
 ---
 
@@ -334,7 +334,7 @@ Download the latest Windows `.exe` from the **Releases** page:
 
 👉 [Download from Releases](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-Current version: `v1.0.3`
+Current version: `v1.0.4`
 
 ---
 
