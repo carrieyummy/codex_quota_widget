@@ -630,7 +630,7 @@ body[data-dock-edge="top"] .widget::before {
 .quota-list {
   /* 每个模型限额组之间的垂直间距。 */
   display: grid;
-  gap: 4px;
+  gap: 8px;
 }
 
 .quota-group {

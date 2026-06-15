@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("codexQuota", {
   setWindowBounds: (bounds) => ipcRenderer.invoke("window:bounds:set", bounds),
   setThemePanelOpen: (value) => ipcRenderer.invoke("window:themePanel:setOpen", value),
   setFontScale: (value) => ipcRenderer.invoke("window:fontScale:set", value),
+  setExpandedSparkVisible: (value) => ipcRenderer.invoke("window:expandedSparkVisible:set", value),
   getAlwaysOnTop: () => ipcRenderer.invoke("window:alwaysOnTop:get"),
   setAlwaysOnTop: (value) => ipcRenderer.invoke("window:alwaysOnTop:set", value),
   getEdgeDockState: () => ipcRenderer.invoke("window:edgeDock:get"),

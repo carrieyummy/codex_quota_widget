@@ -17,6 +17,9 @@ let currentLanguage = "zh";
 let latestQuota;
 let currentFontScale = 1;
 let themePanelBaseBounds = null;
+// 渲染层按真实 DOM 可见性上报：完整窗口里 Spark 分组是否可见。
+// null 表示尚未收到上报，此时只作为启动早期 fallback 使用高度阈值。
+let expandedSparkVisible = null;
 // 贴边收起功能总开关，对应标题栏里的“贴边收起”按钮。
 let edgeDockEnabled = false;
 // 当前贴边状态。null 表示普通窗口；对象表示已吸附到某个边，并保存 restoreBounds。
@@ -116,6 +119,8 @@ function getActiveWindowLimits() {
     dockFullWidth: Math.round(windowLimits.dockFullWidth * scale),
     dockCodexOnlyWidth: Math.round(windowLimits.dockCodexOnlyWidth * scale),
     dockHeight: Math.round(windowLimits.dockHeight * scale),
+    codexOnlyHeightThreshold: Math.round(windowLimits.codexOnlyHeightThreshold * scale),
+    primaryOnlyHeightThreshold: Math.round(windowLimits.primaryOnlyHeightThreshold * scale),
     themePanelExtraHeight: Math.round(windowLimits.themePanelExtraHeight * scale)
   };
 }
@@ -525,9 +530,9 @@ function dockToTopEdge(workArea, bounds) {
   edgeDockState = { edge: "top", restoreBounds };
   edgeDockPreview = false;
   edgeDockHoverArmed = false;
+  sendEdgeDockState();
   applyWindowBounds(getDockBounds(restoreBounds, workArea));
   startEdgeDockHoverMonitor();
-  sendEdgeDockState();
 }
 
 // 计算上边缘缩略条的窗口尺寸。
@@ -545,20 +550,25 @@ function getDockBounds(restoreBounds, workArea) {
   };
 }
 
-// 根据收起前的窗口高度决定贴边条宽度。
-// 当完整窗口已经低到只显示 Codex 限额时，贴边条也不预留 Spark 的空间。
+// 根据渲染层上报的完整窗口 Spark 可见性决定贴边条宽度。
+// 启动早期尚未收到上报时，临时用高度阈值 fallback。
 function getDockWidth(restoreBounds) {
   const limits = getActiveWindowLimits();
-  if (isCodexOnlyHeight(restoreBounds)) {
+  if (!shouldShowSparkInDock(restoreBounds)) {
     return limits.dockCodexOnlyWidth;
   }
   return limits.dockFullWidth;
 }
 
-// 高度阈值只在 windowLimits.codexOnlyHeightThreshold 配置；渲染层通过 IPC 读取。
+// 启动早期 fallback 用的高度阈值；正式贴边显示以渲染层 DOM 可见性上报为准。
 function isCodexOnlyHeight(bounds) {
   const height = Number(bounds?.height);
-  return Number.isFinite(height) && height <= windowLimits.codexOnlyHeightThreshold;
+  return Number.isFinite(height) && height <= getActiveWindowLimits().codexOnlyHeightThreshold;
+}
+
+function shouldShowSparkInDock(restoreBounds) {
+  if (typeof expandedSparkVisible === "boolean") return expandedSparkVisible;
+  return !isCodexOnlyHeight(restoreBounds);
 }
 
 // 返回缩略条高度。需要调缩略条厚度时改 windowLimits.dockHeight。
@@ -765,7 +775,7 @@ function getEdgeDockState() {
     enabled: edgeDockEnabled,
     docked: Boolean(edgeDockState) && !edgeDockPreview,
     preview: edgeDockPreview,
-    compact: Boolean(edgeDockState && isCodexOnlyHeight(edgeDockState.restoreBounds)),
+    compact: Boolean(edgeDockState && !shouldShowSparkInDock(edgeDockState.restoreBounds)),
     edge: edgeDockState?.edge || null
   };
 }
@@ -793,6 +803,21 @@ function setFontScale(value) {
   }
 
   return getWindowLimits();
+}
+
+function setExpandedSparkVisible(value) {
+  const nextVisible = Boolean(value);
+  if (expandedSparkVisible === nextVisible) return getEdgeDockState();
+
+  expandedSparkVisible = nextVisible;
+
+  if (mainWindow && !mainWindow.isDestroyed() && edgeDockState && !edgeDockPreview) {
+    const { workArea } = screen.getDisplayMatching(mainWindow.getBounds());
+    applyWindowBounds(getDockBounds(edgeDockState.restoreBounds, workArea));
+  }
+
+  sendEdgeDockState();
+  return getEdgeDockState();
 }
 
 function sendEdgeDockState() {
@@ -1019,6 +1044,7 @@ app.whenReady().then(() => {
   ipcMain.handle("window:bounds:set", (_event, bounds) => setWindowBounds(bounds));
   ipcMain.handle("window:themePanel:setOpen", (_event, value) => setThemePanelOpen(value));
   ipcMain.handle("window:fontScale:set", (_event, value) => setFontScale(value));
+  ipcMain.handle("window:expandedSparkVisible:set", (_event, value) => setExpandedSparkVisible(value));
   ipcMain.handle("window:alwaysOnTop:get", () => isAlwaysOnTop);
   ipcMain.handle("window:alwaysOnTop:set", (_event, value) => setAlwaysOnTop(value));
   ipcMain.handle("window:edgeDock:get", () => getEdgeDockState());

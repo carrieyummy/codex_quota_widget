@@ -68,6 +68,8 @@ let latestQuota = null;
 let windowLimits = null;
 let lockedWidgetHeight = null;
 let appliedFontScale = null;
+let reportedExpandedSparkVisible = null;
+let sparkVisibilityFrame = null;
 
 const THEME_CONFIG = {
   // 默认背景色；本地没有保存主题时使用。
@@ -414,6 +416,8 @@ function renderQuotaList(limits) {
     group.appendChild(createQuotaRow(t("secondary"), limit.secondary, "secondary"));
     els.quotaList.appendChild(group);
   }
+
+  updateLimitLayout();
 }
 
 function createQuotaRow(label, window, type) {
@@ -532,6 +536,7 @@ async function bootstrap() {
   els.closeBtn.addEventListener("click", () => window.codexQuota?.minimize());
   els.dockStrip.addEventListener("click", restoreEdgeDock);
   els.dockStrip.addEventListener("keydown", restoreEdgeDockFromKeyboard);
+  document.querySelector(".content")?.addEventListener("scroll", scheduleExpandedSparkVisibilityReport);
   initResizeHandles();
   els.pinBtn.addEventListener("click", async () => {
     isAlwaysOnTop = await window.codexQuota.setAlwaysOnTop(!isAlwaysOnTop);
@@ -583,6 +588,11 @@ function applyEdgeDockState(state) {
 
   localStorage.setItem("edgeDockEnabled", String(edgeDockEnabled));
   updateEdgeDockButton();
+  if (!edgeDockState.docked) {
+    updateLimitLayout();
+  } else {
+    scheduleExpandedSparkVisibilityReport();
+  }
 }
 
 function restoreEdgeDock(event) {
@@ -664,6 +674,7 @@ function calculateResizeBounds(startBounds, edge, dx, dy) {
 function updateLimitLayout() {
   if (!windowLimits) {
     delete els.body.dataset.limitLayout;
+    scheduleExpandedSparkVisibilityReport();
     return;
   }
 
@@ -671,11 +682,92 @@ function updateLimitLayout() {
 
   if (layoutHeight <= windowLimits.primaryOnlyHeightThreshold) {
     els.body.dataset.limitLayout = "primary-only";
-  } else if (layoutHeight <= windowLimits.codexOnlyHeightThreshold) {
-    els.body.dataset.limitLayout = "codex-only";
-  } else {
+  } else if (canShowSparkInFullLayout()) {
     els.body.dataset.limitLayout = "full";
+  } else {
+    els.body.dataset.limitLayout = "codex-only";
   }
+
+  scheduleExpandedSparkVisibilityReport();
+}
+
+function canShowSparkInFullLayout() {
+  const sparkGroup = getSparkGroup();
+  if (!sparkGroup) {
+    const layoutHeight = lockedWidgetHeight || window.innerHeight;
+    return layoutHeight > windowLimits.codexOnlyHeightThreshold;
+  }
+
+  const previousLayout = els.body.dataset.limitLayout;
+  els.body.dataset.limitLayout = "full";
+
+  const isVisible = isSparkGroupVisibleInExpandedWindow(sparkGroup);
+
+  if (previousLayout) {
+    els.body.dataset.limitLayout = previousLayout;
+  } else {
+    delete els.body.dataset.limitLayout;
+  }
+
+  return isVisible;
+}
+
+function scheduleExpandedSparkVisibilityReport() {
+  if (sparkVisibilityFrame !== null) return;
+
+  sparkVisibilityFrame = requestAnimationFrame(() => {
+    sparkVisibilityFrame = null;
+    reportExpandedSparkVisibility();
+  });
+}
+
+function reportExpandedSparkVisibility() {
+  if (!window.codexQuota?.setExpandedSparkVisible) return;
+  if (!canReportExpandedSparkVisibility()) return;
+
+  const sparkGroup = getSparkGroup();
+  if (!sparkGroup) return;
+
+  const isVisible = isSparkGroupVisibleInExpandedWindow(sparkGroup);
+  if (reportedExpandedSparkVisible === isVisible) return;
+
+  reportedExpandedSparkVisible = isVisible;
+  window.codexQuota.setExpandedSparkVisible(isVisible).catch(() => {});
+}
+
+function canReportExpandedSparkVisibility() {
+  if (edgeDockState.docked) return false;
+  if (!windowLimits) return true;
+
+  return window.innerHeight > windowLimits.dockHeight + 2;
+}
+
+function getSparkGroup() {
+  return els.quotaList.querySelector(".quota-group.secondary-limit");
+}
+
+function isSparkGroupVisibleInExpandedWindow(sparkGroup) {
+  const style = getComputedStyle(sparkGroup);
+  if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
+    return false;
+  }
+
+  const target = sparkGroup.querySelector("h2") || sparkGroup;
+  const targetRect = target.getBoundingClientRect();
+  const contentRect = document.querySelector(".content")?.getBoundingClientRect();
+  const widgetRect = document.querySelector(".widget")?.getBoundingClientRect();
+  if (!contentRect || !widgetRect || targetRect.width <= 0 || targetRect.height <= 0) return false;
+
+  const clipRect = {
+    top: Math.max(0, contentRect.top, widgetRect.top),
+    right: Math.min(window.innerWidth, contentRect.right, widgetRect.right),
+    bottom: Math.min(window.innerHeight, contentRect.bottom, widgetRect.bottom),
+    left: Math.max(0, contentRect.left, widgetRect.left)
+  };
+
+  const visibleWidth = Math.min(targetRect.right, clipRect.right) - Math.max(targetRect.left, clipRect.left);
+  const visibleHeight = Math.min(targetRect.bottom, clipRect.bottom) - Math.max(targetRect.top, clipRect.top);
+  return visibleWidth > 1 && visibleHeight > 1;
 }
 
 async function toggleThemePanel() {
