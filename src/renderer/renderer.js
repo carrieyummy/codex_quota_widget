@@ -180,6 +180,7 @@ function applyTheme(theme) {
   document.documentElement.style.setProperty("--muted", `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 0.68)`);
   document.documentElement.style.setProperty("--font-scale", fontScale.toFixed(2));
   applyScaledLengthVariables(fontScale);
+  updateLockedWidgetHeightForFontScale(fontScale);
   syncFontScaleToWindow(fontScale);
 }
 
@@ -204,6 +205,7 @@ function applyScaledLengthVariables(fontScale) {
     "--ui-28": 28,
     "--ui-40": 40,
     "--ui-46": 46,
+    "--theme-panel-width": 170,
     "--quota-label-column": 36,
     "--quota-progress-column": 120
   };
@@ -225,6 +227,17 @@ function syncFontScaleToWindow(fontScale) {
       updateLimitLayout();
     })
     .catch(() => {});
+}
+
+function updateLockedWidgetHeightForFontScale(fontScale) {
+  if (!lockedWidgetHeight) return;
+
+  const previousFontScale = appliedFontScale ?? THEME_CONFIG.defaultFontScale;
+  const nextFontScale = normalizeFontScale(fontScale);
+  if (previousFontScale === nextFontScale) return;
+
+  lockedWidgetHeight = Math.round(lockedWidgetHeight * (nextFontScale / previousFontScale));
+  document.documentElement.style.setProperty("--widget-height", `${lockedWidgetHeight}px`);
 }
 
 function configureThemeControls() {
@@ -495,7 +508,7 @@ async function bootstrap() {
     windowLimits = await window.codexQuota.getWindowLimits();
   }
   updateLimitLayout();
-  window.addEventListener("resize", updateLimitLayout);
+  window.addEventListener("resize", handleWindowResize);
 
   const theme = loadTheme();
   els.bgColorInput.value = theme.backgroundColor;
@@ -801,12 +814,17 @@ async function openThemePanel() {
 
 function updateThemePanelPosition() {
   const buttonRect = els.paletteBtn.getBoundingClientRect();
-  const panelWidth = Math.min(170, Math.max(0, window.innerWidth - 16));
+  const panelWidth = Math.min(getScaledLength("--theme-panel-width", 170), Math.max(0, window.innerWidth - 16));
   const panelLeft = clampNumber(buttonRect.left + buttonRect.width / 2 - panelWidth / 2, 8, Math.max(8, window.innerWidth - panelWidth - 8));
   const panelTop = buttonRect.bottom + getScaledLength("--ui-6", 6);
 
   document.documentElement.style.setProperty("--theme-panel-left", `${Math.round(panelLeft)}px`);
   document.documentElement.style.setProperty("--theme-panel-top", `${Math.round(panelTop)}px`);
+}
+
+function handleWindowResize() {
+  updateLimitLayout();
+  if (!els.themePanel.hidden && document.activeElement !== els.fontScaleInput) updateThemePanelPosition();
 }
 
 function getScaledLength(name, fallback) {

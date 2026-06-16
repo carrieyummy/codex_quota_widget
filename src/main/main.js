@@ -331,6 +331,15 @@ function normalizeExpandedBounds(bounds) {
   return normalized;
 }
 
+function scaleExpandedBoundsForFontScale(bounds, previousScale, nextScale) {
+  const scaleFactor = normalizeFontScale(nextScale) / normalizeFontScale(previousScale);
+  return normalizeExpandedBounds({
+    ...bounds,
+    width: Math.round(Number(bounds?.width) * scaleFactor),
+    height: Math.round(Number(bounds?.height) * scaleFactor)
+  });
+}
+
 // 记录最近一次完整窗口位置。缩略态和程序主动 setBounds 时不会覆盖它。
 function rememberNormalBounds() {
   if (!mainWindow || mainWindow.isDestroyed() || edgeDockState || themePanelBaseBounds || isApplyingWindowBounds) return;
@@ -366,7 +375,7 @@ function setThemePanelOpen(value) {
 }
 
 function openThemePanelWindowExpansion() {
-  if (!mainWindow || mainWindow.isDestroyed() || edgeDockState) return null;
+  if (!mainWindow || mainWindow.isDestroyed() || (edgeDockState && !edgeDockPreview)) return null;
   if (themePanelBaseBounds) return themePanelBaseBounds;
 
   const currentBounds = mainWindow.getBounds();
@@ -392,6 +401,12 @@ function closeThemePanelWindowExpansion() {
   const restoredBounds = clampBoundsToWorkArea(baseBounds, workArea);
 
   applyWindowBounds(restoredBounds);
+  if (edgeDockState && edgeDockPreview) {
+    edgeDockState = {
+      ...edgeDockState,
+      restoreBounds: restoredBounds
+    };
+  }
   lastNormalBounds = restoredBounds;
   scheduleSaveWindowBounds();
   return restoredBounds;
@@ -697,6 +712,7 @@ function updateEdgeDockHoverPreview() {
   if (!edgeDockPreview && isInsideWindow) {
     showEdgeDockPreview(bounds);
   } else if (edgeDockPreview && !isInsideWindow) {
+    if (themePanelBaseBounds) return;
     hideEdgeDockPreview();
   }
 }
@@ -788,16 +804,39 @@ function getWindowLimits() {
 }
 
 function setFontScale(value) {
+  const previousFontScale = currentFontScale;
   currentFontScale = normalizeFontScale(value);
   saveFontScale();
   updateWindowSizeLimits();
 
-  if (mainWindow && !mainWindow.isDestroyed() && !themePanelBaseBounds && !edgeDockState) {
+  if (mainWindow && !mainWindow.isDestroyed() && (!edgeDockState || edgeDockPreview)) {
     const currentBounds = mainWindow.getBounds();
-    const nextBounds = clampBoundsToWorkArea(normalizeExpandedBounds(currentBounds), screen.getDisplayMatching(currentBounds).workArea);
+    const { workArea } = screen.getDisplayMatching(currentBounds);
+    let nextBounds;
+
+    if (themePanelBaseBounds) {
+      themePanelBaseBounds = clampBoundsToWorkArea(scaleExpandedBoundsForFontScale(themePanelBaseBounds, previousFontScale, currentFontScale), workArea);
+      const limits = getActiveWindowLimits();
+      nextBounds = clampBoundsToWorkArea({
+        ...themePanelBaseBounds,
+        height: Math.min(workArea.height, themePanelBaseBounds.height + limits.themePanelExtraHeight)
+      }, workArea);
+    } else {
+      nextBounds = clampBoundsToWorkArea(scaleExpandedBoundsForFontScale(currentBounds, previousFontScale, currentFontScale), workArea);
+    }
+
     if (nextBounds.width !== currentBounds.width || nextBounds.height !== currentBounds.height || nextBounds.x !== currentBounds.x || nextBounds.y !== currentBounds.y) {
       applyWindowBounds(nextBounds);
-      rememberNormalBounds();
+      if (edgeDockState && edgeDockPreview) {
+        const restoredBounds = themePanelBaseBounds || normalizeExpandedBounds(nextBounds);
+        edgeDockState = {
+          ...edgeDockState,
+          restoreBounds: restoredBounds
+        };
+        lastNormalBounds = restoredBounds;
+      } else {
+        rememberNormalBounds();
+      }
       scheduleSaveWindowBounds();
     }
   }

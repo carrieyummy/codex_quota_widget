@@ -62,6 +62,13 @@
   --ui-28: 28px;
   --ui-40: 40px;
   --ui-46: 46px;
+  --theme-panel-width: 170px;
+  --theme-panel-padding: 7px;
+  --theme-label-width: 46px;
+  --theme-field-gap: 7px;
+  --theme-control-width: 100px;
+  --theme-color-input-height: 20px;
+  --theme-range-height: 18px;
   --quota-label-column: 36px;
   --quota-progress-column: 120px;
   /* 贴边状态下圆点自身左右外边距；通常只做微调，主位置优先改 --dock-padding。 */
@@ -561,8 +568,8 @@ body[data-dock-edge="top"] .widget::before {
   z-index: 4;
   top: var(--theme-panel-top, calc(var(--ui-28) + var(--ui-6)));
   left: var(--theme-panel-left, 8px);
-  width: min(170px, calc(100vw - 16px));
-  padding: var(--ui-7);
+  width: min(var(--theme-panel-width), calc(100vw - 16px));
+  padding: var(--theme-panel-padding);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   background:
@@ -578,25 +585,26 @@ body[data-dock-edge="top"] .widget::before {
 }
 
 .theme-field {
-  /* 左侧标签固定 52px，右侧控件自适应。 */
+  /* 控件列保持固定位置和宽度，避免拖字体滑块时控件在鼠标下闪动。 */
   display: grid;
-  grid-template-columns: var(--ui-46) minmax(0, 1fr);
+  grid-template-columns: var(--theme-label-width) var(--theme-control-width);
   align-items: center;
-  gap: var(--ui-7);
+  justify-content: start;
+  gap: var(--theme-field-gap);
   color: var(--muted);
-  font-size: var(--font-size-10);
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.1;
 }
 
 .theme-field + .theme-field {
-  margin-top: var(--ui-6);
+  margin-top: 6px;
 }
 
 .theme-field input[type="color"] {
   /* 颜色选择器高度。若面板显得拥挤，可调 height。 */
   width: 100%;
-  height: var(--ui-20);
+  height: var(--theme-color-input-height);
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 5px;
@@ -606,8 +614,8 @@ body[data-dock-edge="top"] .widget::before {
 
 .theme-field input[type="range"] {
   /* 透明度滑块颜色跟随状态强调色。 */
-  width: 100%;
-  height: var(--ui-18);
+  width: var(--theme-control-width);
+  height: var(--theme-range-height);
   accent-color: var(--accent);
   cursor: pointer;
 }
