@@ -116,9 +116,11 @@ const els = {
   dockStrip: document.getElementById("dockStrip"),
   dockTrafficLight: document.getElementById("dockTrafficLight"),
   dockCodexPrimary: document.getElementById("dockCodexPrimary"),
+  dockCodexPrimaryResetDate: document.getElementById("dockCodexPrimaryResetDate"),
   dockCodexPrimaryReset: document.getElementById("dockCodexPrimaryReset"),
   dockCodexSecondary: document.getElementById("dockCodexSecondary"),
   dockSparkPrimary: document.getElementById("dockSparkPrimary"),
+  dockSparkPrimaryResetDate: document.getElementById("dockSparkPrimaryResetDate"),
   dockSparkPrimaryReset: document.getElementById("dockSparkPrimaryReset"),
   dockSparkSecondary: document.getElementById("dockSparkSecondary"),
   dockUpdatedAt: document.getElementById("dockUpdatedAt"),
@@ -205,13 +207,26 @@ function applyScaledLengthVariables(fontScale) {
     "--ui-28": 28,
     "--ui-40": 40,
     "--ui-46": 46,
-    "--theme-panel-width": 170,
-    "--quota-label-column": 36,
-    "--quota-progress-column": 120
+    "--theme-panel-width": 170
   };
 
   for (const [name, basePx] of Object.entries(scaledLengths)) {
     document.documentElement.style.setProperty(name, `${(basePx * scale).toFixed(2)}px`);
+  }
+}
+
+// 额度行的尺寸由主进程 windowLimits 统一提供，保证窗口最小宽度和 CSS 三列布局使用同一组数值。
+function applyQuotaLayoutVariables(limits) {
+  const properties = {
+    "--quota-label-column": limits.quotaLabelColumn,
+    "--quota-progress-column": limits.quotaProgressColumn,
+    "--quota-value-column": limits.quotaValueColumn,
+    "--quota-row-gap": limits.quotaRowGap,
+    "--quota-row-padding-right": limits.quotaRowPaddingRight
+  };
+
+  for (const [name, value] of Object.entries(properties)) {
+    document.documentElement.style.setProperty(name, `${value}px`);
   }
 }
 
@@ -224,6 +239,7 @@ function syncFontScaleToWindow(fontScale) {
     .then((limits) => {
       if (!limits) return;
       windowLimits = limits;
+      applyQuotaLayoutVariables(limits);
       updateLimitLayout();
     })
     .catch(() => {});
@@ -350,6 +366,14 @@ function formatResetTime(iso, resetFormat = "auto") {
     return formatClockTime(date);
   }
 
+  if (resetFormat === "date") {
+    return formatResetDate(date);
+  }
+
+  if (resetFormat === "date-time") {
+    return `${formatResetDate(date)} ${formatClockTime(date)}`;
+  }
+
   const now = new Date();
   const sameDay =
     date.getFullYear() === now.getFullYear() &&
@@ -365,10 +389,16 @@ function formatResetTime(iso, resetFormat = "auto") {
   }
 
   if (language === "en") {
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return formatResetDate(date);
   }
 
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+  return formatResetDate(date);
+}
+
+function formatResetDate(date) {
+  return language === "en"
+    ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 function updateQuota(quota) {
@@ -388,11 +418,13 @@ function updateDockSummary(quota) {
   const fetchedAt = quota?.fetchedAt ? new Date(quota.fetchedAt) : null;
 
   els.dockCodexPrimary.textContent = formatCompactPercent(codexLimit?.primary);
+  els.dockCodexPrimaryResetDate.textContent = formatCompactReset(codexLimit?.primary, "date");
   els.dockCodexPrimaryReset.textContent = formatCompactReset(codexLimit?.primary, "time");
-  els.dockCodexSecondary.textContent = formatCompactPercent(codexLimit?.secondary);
+  els.dockCodexSecondary.textContent = formatCompactPercent(codexLimit?.secondary, "");
   els.dockSparkPrimary.textContent = formatCompactPercent(sparkLimit?.primary);
+  els.dockSparkPrimaryResetDate.textContent = formatCompactReset(sparkLimit?.primary, "date");
   els.dockSparkPrimaryReset.textContent = formatCompactReset(sparkLimit?.primary, "time");
-  els.dockSparkSecondary.textContent = formatCompactPercent(sparkLimit?.secondary);
+  els.dockSparkSecondary.textContent = formatCompactPercent(sparkLimit?.secondary, "");
   els.dockUpdatedAt.textContent = fetchedAt && Number.isFinite(fetchedAt.getTime()) ? formatClockTime(fetchedAt) : "--:--";
 }
 
@@ -403,8 +435,8 @@ function findDockLimit(limits, pattern, excludedLimit) {
   });
 }
 
-function formatCompactPercent(window) {
-  if (!window || !Number.isFinite(window.remainingPercent)) return "--";
+function formatCompactPercent(window, fallback = "--") {
+  if (!window || !Number.isFinite(window.remainingPercent)) return fallback;
   return `${Math.round(window.remainingPercent)}%`;
 }
 
@@ -425,12 +457,36 @@ function renderQuotaList(limits) {
     title.textContent = limit.limitName || t("unknown");
     group.appendChild(title);
 
-    group.appendChild(createQuotaRow(t("primary"), limit.primary, "primary"));
-    group.appendChild(createQuotaRow(t("secondary"), limit.secondary, "secondary"));
+    // 新版 Codex 接口会只返回一个 primary 窗口，且该窗口可能就是 7 天额度。
+    // 仅渲染实际存在的窗口，并以 windowDurationMins 为准显示名称；保留旧接口
+    // 的 primary/secondary 兜底标签，兼容仍会返回两个窗口的 Codex 版本。
+    if (limit.primary) {
+      group.appendChild(createQuotaRow(getWindowLabel(limit.primary, "primary"), limit.primary, "primary"));
+    }
+    if (limit.secondary) {
+      group.appendChild(createQuotaRow(getWindowLabel(limit.secondary, "secondary"), limit.secondary, "secondary"));
+    }
     els.quotaList.appendChild(group);
   }
 
   updateLimitLayout();
+}
+
+function getWindowLabel(window, fallbackKey) {
+  const minutes = Number(window?.windowDurationMins);
+  if (!Number.isFinite(minutes) || minutes <= 0) return t(fallbackKey);
+
+  if (minutes % (24 * 60) === 0) {
+    const days = minutes / (24 * 60);
+    return language === "zh" ? `${days}天` : `${days}d`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return language === "zh" ? `${hours}小时` : `${hours}h`;
+  }
+
+  return language === "zh" ? `${minutes}分钟` : `${minutes}m`;
 }
 
 function createQuotaRow(label, window, type) {
@@ -464,10 +520,17 @@ function createQuotaRow(label, window, type) {
 
   const valueEl = document.createElement("strong");
   valueEl.className = "quota-value";
-  valueEl.textContent = formatWindowValue(window, type === "primary" ? "time" : "auto");
+  valueEl.textContent = formatWindowValue(window, getWindowResetFormat(window, type));
 
   row.append(labelEl, progressEl, valueEl);
   return row;
+}
+
+function getWindowResetFormat(window, type) {
+  const minutes = Number(window?.windowDurationMins);
+  // 7 天等长窗口应显示重置日期，而不是仅显示一个容易误解的时:分。
+  if (Number.isFinite(minutes) && minutes >= 24 * 60) return "date-time";
+  return type === "primary" ? "time" : "auto";
 }
 
 function statusTextForQuota(quota, state) {
@@ -506,6 +569,7 @@ async function bootstrap() {
   configureThemeControls();
   if (window.codexQuota?.getWindowLimits) {
     windowLimits = await window.codexQuota.getWindowLimits();
+    applyQuotaLayoutVariables(windowLimits);
   }
   updateLimitLayout();
   window.addEventListener("resize", handleWindowResize);

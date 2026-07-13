@@ -50,19 +50,25 @@ const fontScaleLimits = {
 // 窗口尺寸和贴边行为的主要调参入口。
 const windowLimits = {
   // 完整窗口默认宽度；首次启动或状态文件无效时使用。
-  defaultWidth: 264,
-  // 完整窗口手动调整宽度的下限。
-  minWidth: 260,
+  defaultWidth: 350,
+  // 完整窗口手动调整宽度的下限。该值必须不小于额度行的所有列、间距、内边距和窗口边框之和。
+  minWidth: 320,
   // 完整窗口手动调整宽度的上限。
-  maxWidth: 300,
-  // 同时显示 Codex + Spark 的贴边缩略条宽度。需要留够两个 5 小时重置时间。
-  dockFullWidth: 350,
-  // 只显示 Codex 限额时的贴边缩略条宽度。调小会更省空间，但要留够 HH:mm Codex: 100% 14:44 100%。
-  dockCodexOnlyWidth: 175,
+  maxWidth: 360,
+  // 完整窗口额度行的三列宽度、列间距和右侧内边距。调整这些值时，同步确认 minWidth 仍足以容纳整行。
+  quotaLabelColumn: 36,
+  quotaProgressColumn: 120,
+  quotaValueColumn: 170,
+  quotaRowGap: 16,
+  quotaRowPaddingRight: 6,
+  // 同时显示 Codex + Spark 的贴边缩略条宽度。需要留够两个主限额的百分比、重置月日和 HH:mm。
+  dockFullWidth: 380,
+  // 只显示 Codex 限额时的贴边缩略条宽度。需要留够 HH:mm Codex: 100% 7月13日 14:44 100%。
+  dockCodexOnlyWidth: 190,
   // 完整窗口可手动缩放到的最小高度。
-  minHeight: 74,
+  minHeight: 84,
   // 完整窗口可手动缩放到的最大高度。
-  maxHeight: 140, /* 已经手动优化，不要改动 */
+  maxHeight: 110, /* 已经手动优化，不要改动 */
   // 顶部贴边缩略条高度。只影响缩略态，不影响完整窗口最小高度。
   dockHeight: 15,
   // 完整窗口高度小于等于这个值时，界面只显示 Codex 限额；贴边后也会隐藏 Spark 并使用 dockCodexOnlyWidth。
@@ -74,12 +80,6 @@ const windowLimits = {
   edgeThreshold: 32,
   // 从顶部缩略条恢复完整窗口时，向屏幕内部偏移的距离。
   restoreInset: 18
-};
-
-// 首次启动或状态文件无效时使用的完整窗口默认尺寸。
-const defaultBounds = {
-  width: windowLimits.defaultWidth,
-  height: windowLimits.maxHeight
 };
 
 function normalizeFontScale(value) {
@@ -114,7 +114,14 @@ function getActiveWindowLimits() {
 
   return {
     ...windowLimits,
+    defaultWidth: Math.round(windowLimits.defaultWidth * scale),
+    minWidth: Math.round(windowLimits.minWidth * scale),
     maxWidth: Math.round(windowLimits.maxWidth * scale),
+    quotaLabelColumn: Math.round(windowLimits.quotaLabelColumn * scale),
+    quotaProgressColumn: Math.round(windowLimits.quotaProgressColumn * scale),
+    quotaValueColumn: Math.round(windowLimits.quotaValueColumn * scale),
+    quotaRowGap: Math.round(windowLimits.quotaRowGap * scale),
+    quotaRowPaddingRight: Math.round(windowLimits.quotaRowPaddingRight * scale),
     maxHeight: Math.round(windowLimits.maxHeight * scale),
     dockFullWidth: Math.round(windowLimits.dockFullWidth * scale),
     dockCodexOnlyWidth: Math.round(windowLimits.dockCodexOnlyWidth * scale),
@@ -122,6 +129,16 @@ function getActiveWindowLimits() {
     codexOnlyHeightThreshold: Math.round(windowLimits.codexOnlyHeightThreshold * scale),
     primaryOnlyHeightThreshold: Math.round(windowLimits.primaryOnlyHeightThreshold * scale),
     themePanelExtraHeight: Math.round(windowLimits.themePanelExtraHeight * scale)
+  };
+}
+
+// 首次启动或状态文件无效时使用的完整窗口默认尺寸。
+// 宽高和字体一起缩放，避免大字体下重新启动又回到过窄窗口。
+function getDefaultBounds() {
+  const limits = getActiveWindowLimits();
+  return {
+    width: limits.defaultWidth,
+    height: limits.maxHeight
   };
 }
 
@@ -243,7 +260,7 @@ function loadWindowBounds() {
   }
 
   return {
-    ...defaultBounds,
+    ...getDefaultBounds(),
     hasPosition: false
   };
 }
@@ -254,8 +271,9 @@ function loadWindowBounds() {
 function sanitizeWindowBounds(state) {
   if (!state || typeof state !== "object") return null;
   const limits = getActiveWindowLimits();
-  const width = clampNumber(Math.round(Number(state.width) || defaultBounds.width), limits.minWidth, limits.maxWidth);
-  const height = clampNumber(Math.round(Number(state.height) || defaultBounds.height), limits.minHeight, limits.maxHeight);
+  const defaults = getDefaultBounds();
+  const width = clampNumber(Math.round(Number(state.width) || defaults.width), limits.minWidth, limits.maxWidth);
+  const height = clampNumber(Math.round(Number(state.height) || defaults.height), limits.minHeight, limits.maxHeight);
   const x = Number.isFinite(state.x) ? Math.round(state.x) : undefined;
   const y = Number.isFinite(state.y) ? Math.round(state.y) : undefined;
   const hasPosition = Number.isFinite(x) && Number.isFinite(y);
@@ -319,8 +337,9 @@ function getPersistableWindowBounds() {
 // 返回 min/max 限制后的宽高；坐标存在时保留。
 function normalizeExpandedBounds(bounds) {
   const limits = getActiveWindowLimits();
-  const height = clampNumber(Math.round(Number(bounds?.height) || defaultBounds.height), limits.minHeight, limits.maxHeight);
-  const width = clampNumber(Math.round(Number(bounds?.width) || defaultBounds.width), limits.minWidth, limits.maxWidth);
+  const defaults = getDefaultBounds();
+  const height = clampNumber(Math.round(Number(bounds?.height) || defaults.height), limits.minHeight, limits.maxHeight);
+  const width = clampNumber(Math.round(Number(bounds?.width) || defaults.width), limits.minWidth, limits.maxWidth);
   const normalized = {
     width,
     height
@@ -888,7 +907,13 @@ function createTrayTooltip(state, quota) {
 
   return [
     "Codex Quota Widget",
-    ...quota.limits.map((limit) => `${formatTrayLimitName(limit)}: ${formatTrayWindow("5h", limit.primary)} / ${formatTrayWindow("7d", limit.secondary)}`)
+    ...quota.limits.map((limit) => {
+      const windows = [
+        limit.primary ? formatTrayWindow(limit.primary, "5h") : null,
+        limit.secondary ? formatTrayWindow(limit.secondary, "7d") : null
+      ].filter(Boolean);
+      return `${formatTrayLimitName(limit)}: ${windows.join(" / ") || "--"}`;
+    })
   ].join("\n");
 }
 
@@ -897,13 +922,22 @@ function formatTrayLimitName(limit) {
   return limit.limitName || limit.limitId || "Unknown";
 }
 
-function formatTrayWindow(label, window) {
+function formatTrayWindow(window, fallbackLabel) {
+  const label = formatWindowDuration(window) || fallbackLabel;
   if (currentLanguage === "zh") {
-    const zhLabel = label === "5h" ? "5小时额度" : "7天额度";
+    const zhLabel = label.endsWith("d") ? `${label.slice(0, -1)}天额度` : label.endsWith("h") ? `${label.slice(0, -1)}小时额度` : `${label}额度`;
     return `${zhLabel} ${formatTrayRemaining(window)}`;
   }
 
   return `${label} limit ${formatTrayRemaining(window)}`;
+}
+
+function formatWindowDuration(window) {
+  const minutes = Number(window?.windowDurationMins);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  if (minutes % (24 * 60) === 0) return `${minutes / (24 * 60)}d`;
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return `${minutes}m`;
 }
 
 function formatTrayRemaining(window) {

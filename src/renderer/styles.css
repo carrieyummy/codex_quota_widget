@@ -71,6 +71,9 @@
   --theme-range-height: 18px;
   --quota-label-column: 36px;
   --quota-progress-column: 120px;
+  --quota-value-column: 170px;
+  --quota-row-gap: 16px;
+  --quota-row-padding-right: 6px;
   /* 贴边状态下圆点自身左右外边距；通常只做微调，主位置优先改 --dock-padding。 */
   --dock-light-margin-left: 0px;
   --dock-light-margin-right: 0px;
@@ -461,7 +464,17 @@ body[data-theme-panel="open"] .widget::before {
   white-space: nowrap;
 }
 
-/* 贴边条里的 5 小时重置时间，显示为 HH:mm，放在 5 小时百分比右侧。 */
+/* 贴边条里的重置月日，显示在主限额百分比与 HH:mm 之间。 */
+.dock-reset-date {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: var(--font-size-10);
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* 贴边条里的 5 小时重置时间，显示为 HH:mm，放在重置月日右侧。 */
 .dock-reset {
   flex: 0 0 auto;
   color: var(--muted);
@@ -658,13 +671,13 @@ body[data-dock-edge="top"] .widget::before {
 }
 
 .quota-row {
-  /* 两列布局：左侧限额名称，右侧百分比/重置时间。 */
+  /* 三列布局：左侧限额名称、中间进度条、右侧百分比/重置时间。 */
   display: grid;
-  grid-template-columns: var(--quota-label-column) var(--quota-progress-column) 170px; /* 已经手动优化，不要改动 */
+  grid-template-columns: var(--quota-label-column) var(--quota-progress-column) var(--quota-value-column);
   align-items: center;
   justify-content: start; /* 将百分比和重置时间向左对齐 */
-  gap: 16px;
-  padding-right: 6px;
+  gap: var(--quota-row-gap);
+  padding-right: var(--quota-row-padding-right);
   min-height: 14px; /* 确保行高足够显示所有内容 */
   font-size: var(--font-size-11);
   font-weight: 800;
