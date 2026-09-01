@@ -68,7 +68,7 @@ const windowLimits = {
   // 完整窗口可手动缩放到的最小高度。
   minHeight: 84,
   // 完整窗口可手动缩放到的最大高度。
-  maxHeight: 110, /* 已经手动优化，不要改动 */
+  maxHeight: 140, /* 已经手动优化，不要改动 */
   // 顶部贴边缩略条高度。只影响缩略态，不影响完整窗口最小高度。
   dockHeight: 15,
   // 完整窗口高度小于等于这个值时，界面只显示 Codex 限额；贴边后也会隐藏 Spark 并使用 dockCodexOnlyWidth。
