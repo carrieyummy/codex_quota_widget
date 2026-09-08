@@ -68,7 +68,7 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 - 🔄 **自动刷新额度**
   - 自动读取 Codex 使用情况
-  - 默认每 60 秒刷新一次
+  - 默认每 120 秒刷新一次
   - 也可以从主窗口或托盘菜单手动刷新
 
 - 🔐 **隐私友好**
@@ -84,7 +84,7 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 👉 [前往 Releases 下载](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-当前版本：`v1.0.6`
+当前版本：`v1.0.7`
 
 ---
 
@@ -317,7 +317,7 @@ It uses a transparent liquid-glass interface and a simple red / yellow / green L
 * 🔄 **Automatic refresh**
 
   * Reads Codex usage automatically
-  * Refreshes every 60 seconds by default
+  * Refreshes every 120 seconds by default
   * Manual refresh is available from both the widget and the tray menu
 
 * 🔐 **Privacy-friendly**
@@ -334,7 +334,7 @@ Download the latest Windows `.exe` from the **Releases** page:
 
 👉 [Download from Releases](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-Current version: `v1.0.6`
+Current version: `v1.0.7`
 
 ---
 

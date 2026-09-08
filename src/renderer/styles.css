@@ -62,11 +62,11 @@
   --ui-28: 28px;
   --ui-40: 40px;
   --ui-46: 46px;
-  --theme-panel-width: 170px;
+  --theme-panel-width: 240px;
   --theme-panel-padding: 7px;
-  --theme-label-width: 46px;
+  --theme-label-width: 120px;
   --theme-field-gap: 7px;
-  --theme-control-width: 100px;
+  --theme-control-width: 95px;
   --theme-color-input-height: 20px;
   --theme-range-height: 18px;
   --quota-label-column: 36px;
@@ -566,7 +566,7 @@ body[data-dock-edge="top"] .widget::before {
   border-radius: 0 0 var(--dock-inner-radius) var(--dock-inner-radius);
 }
 
-/* 调色盘遮罩：透明层用于点击外部关闭主题面板。 */
+/* 设置面板遮罩：透明层用于点击外部关闭面板。 */
 .theme-overlay {
   position: fixed;
   z-index: 3;
@@ -575,7 +575,7 @@ body[data-dock-edge="top"] .widget::before {
   -webkit-app-region: no-drag;
 }
 
-/* 调色盘面板：用于背景色、文字色、透明度。 */
+/* 设置面板：用于外观和额度刷新间隔配置。 */
 .theme-panel {
   position: absolute;
   z-index: 4;
@@ -631,6 +631,37 @@ body[data-dock-edge="top"] .widget::before {
   height: var(--theme-range-height);
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+.refresh-interval-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: var(--theme-control-width);
+}
+
+.theme-field input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  height: var(--theme-color-input-height);
+  padding: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 5px;
+  outline: none;
+  background: rgba(0, 0, 0, 0.12);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+  user-select: text;
+}
+
+.theme-field input[type="number"]:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 72%, white 0%);
+}
+
+#refreshIntervalUnit {
+  flex: 0 0 auto;
 }
 
 /* 额度列表容器：完整窗口内容区域。 */

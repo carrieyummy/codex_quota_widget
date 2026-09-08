@@ -47,17 +47,14 @@
           <button
             id="paletteBtn"
             class="icon-button"
-            title="调色盘"
-            aria-label="调色盘"
+            title="设置"
+            aria-label="设置"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
-                d="M12 22a10 10 0 1 1 10-10c0 1.7-1 2.8-2.7 2.8h-1.7c-.9 0-1.6.7-1.6 1.6 0 .4.1.7.3 1 .7 1.1-.1 2.6-1.5 2.6H12z"
+                d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4A2 2 0 0 0 4 9.9l.2.1a2 2 0 0 1 1 1.7v.6a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.6a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"
               />
-              <circle cx="7.5" cy="10.5" r="1" />
-              <circle cx="10.5" cy="7.5" r="1" />
-              <circle cx="14.5" cy="7.5" r="1" />
-              <circle cx="16.5" cy="11" r="1" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
           <button
@@ -154,6 +151,20 @@
         <label class="theme-field">
           <span id="fontScaleLabel">Font</span>
           <input id="fontScaleInput" type="range" />
+        </label>
+        <label class="theme-field">
+          <span id="refreshIntervalLabel">刷新间隔</span>
+          <span class="refresh-interval-control">
+            <input
+              id="refreshIntervalInput"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              title="0 表示不自动刷新"
+            />
+            <span id="refreshIntervalUnit">秒</span>
+          </span>
         </label>
       </section>
 

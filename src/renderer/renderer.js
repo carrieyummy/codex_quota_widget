@@ -9,11 +9,14 @@ const i18n = {
     error: "读取失败",
     primary: "5小时",
     secondary: "7天",
-    palette: "调色盘",
+    settings: "设置",
     bgColor: "背景色",
     textColor: "字体色",
     opacity: "透明度",
     fontScale: "字体",
+    refreshInterval: "刷新间隔",
+    refreshIntervalUnit: "秒",
+    refreshIntervalHint: "0 表示不自动刷新",
     refresh: "刷新",
     hide: "隐藏",
     exit: "退出",
@@ -38,11 +41,14 @@ const i18n = {
     error: "Read failed",
     primary: "5h",
     secondary: "7d",
-    palette: "Theme",
+    settings: "Settings",
     bgColor: "Color",
     textColor: "Text",
     opacity: "Opacity",
     fontScale: "Font",
+    refreshInterval: "Refresh interval",
+    refreshIntervalUnit: "S",
+    refreshIntervalHint: "0 disables automatic refresh",
     refresh: "Refresh",
     hide: "Hide",
     exit: "Exit",
@@ -59,11 +65,17 @@ const i18n = {
   }
 };
 
+const REFRESH_INTERVAL_CONFIG = {
+  storageKey: "quota.refreshIntervalSeconds",
+  defaultSeconds: 120
+};
+
 let language = localStorage.getItem("language") || "zh";
 let isAlwaysOnTop = true;
 let edgeDockEnabled = localStorage.getItem("edgeDockEnabled") !== "false";
 let edgeDockState = { enabled: edgeDockEnabled, docked: false, edge: null };
 let refreshTimer = null;
+let refreshIntervalSeconds = loadRefreshIntervalSeconds();
 let latestQuota = null;
 let windowLimits = null;
 let lockedWidgetHeight = null;
@@ -104,10 +116,13 @@ const els = {
   textColorInput: document.getElementById("textColorInput"),
   opacityInput: document.getElementById("opacityInput"),
   fontScaleInput: document.getElementById("fontScaleInput"),
+  refreshIntervalInput: document.getElementById("refreshIntervalInput"),
   bgColorLabel: document.getElementById("bgColorLabel"),
   textColorLabel: document.getElementById("textColorLabel"),
   opacityLabel: document.getElementById("opacityLabel"),
   fontScaleLabel: document.getElementById("fontScaleLabel"),
+  refreshIntervalLabel: document.getElementById("refreshIntervalLabel"),
+  refreshIntervalUnit: document.getElementById("refreshIntervalUnit"),
   langBtn: document.getElementById("langBtn"),
   pinBtn: document.getElementById("pinBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
@@ -134,12 +149,15 @@ function t(key) {
 function applyLabels() {
   els.brandName.textContent = t("brand");
   els.langBtn.textContent = t("lang");
-  els.paletteBtn.title = t("palette");
-  els.paletteBtn.setAttribute("aria-label", t("palette"));
+  els.paletteBtn.title = t("settings");
+  els.paletteBtn.setAttribute("aria-label", t("settings"));
   els.bgColorLabel.textContent = t("bgColor");
   els.textColorLabel.textContent = t("textColor");
   els.opacityLabel.textContent = t("opacity");
   els.fontScaleLabel.textContent = t("fontScale");
+  els.refreshIntervalLabel.textContent = t("refreshInterval");
+  els.refreshIntervalUnit.textContent = t("refreshIntervalUnit");
+  els.refreshIntervalInput.title = t("refreshIntervalHint");
   els.refreshBtn.title = t("refresh");
   els.refreshBtn.setAttribute("aria-label", t("refresh"));
   els.closeBtn.title = t("hide");
@@ -207,7 +225,7 @@ function applyScaledLengthVariables(fontScale) {
     "--ui-28": 28,
     "--ui-40": 40,
     "--ui-46": 46,
-    "--theme-panel-width": 170
+    "--theme-panel-width": 240
   };
 
   for (const [name, basePx] of Object.entries(scaledLengths)) {
@@ -264,6 +282,50 @@ function configureThemeControls() {
   els.fontScaleInput.max = String(THEME_CONFIG.maxFontScale);
   els.fontScaleInput.step = String(THEME_CONFIG.fontScaleStep);
   els.fontScaleInput.value = String(THEME_CONFIG.defaultFontScale);
+  els.refreshIntervalInput.min = "0";
+  els.refreshIntervalInput.step = "1";
+  syncRefreshIntervalInput();
+}
+
+function parseRefreshIntervalSeconds(value) {
+  const text = String(value ?? "").trim();
+  if (!/^\d+$/.test(text)) return null;
+
+  const seconds = Number(text);
+  return Number.isSafeInteger(seconds) ? seconds : null;
+}
+
+function loadRefreshIntervalSeconds() {
+  const storedValue = localStorage.getItem(REFRESH_INTERVAL_CONFIG.storageKey);
+  if (storedValue === null) return REFRESH_INTERVAL_CONFIG.defaultSeconds;
+
+  const seconds = parseRefreshIntervalSeconds(storedValue);
+  return seconds ?? REFRESH_INTERVAL_CONFIG.defaultSeconds;
+}
+
+function syncRefreshIntervalInput() {
+  els.refreshIntervalInput.value = String(refreshIntervalSeconds);
+}
+
+function commitRefreshInterval() {
+  const seconds = parseRefreshIntervalSeconds(els.refreshIntervalInput.value);
+  if (seconds === null) {
+    syncRefreshIntervalInput();
+    return;
+  }
+
+  const intervalChanged = seconds !== refreshIntervalSeconds;
+  refreshIntervalSeconds = seconds;
+  localStorage.setItem(REFRESH_INTERVAL_CONFIG.storageKey, String(seconds));
+  syncRefreshIntervalInput();
+  if (intervalChanged) scheduleNextRefresh();
+}
+
+function handleRefreshIntervalKeydown(event) {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  commitRefreshInterval();
+  els.refreshIntervalInput.blur();
 }
 
 function normalizeOpacity(value) {
@@ -551,18 +613,27 @@ function formatClockTime(date) {
 
 async function refreshQuota() {
   clearTimeout(refreshTimer);
+  refreshTimer = null;
   setState("loading");
 
   try {
     const quota = await window.codexQuota.getQuota();
     updateQuota(quota);
-    refreshTimer = setTimeout(refreshQuota, 60000);
   } catch (error) {
     els.quotaList.textContent = "";
     updateDockSummary(latestQuota);
     setState("error", `${t("error")} · ${formatClockTime(new Date())}`);
-    refreshTimer = setTimeout(refreshQuota, 60000);
+  } finally {
+    scheduleNextRefresh();
   }
+}
+
+function scheduleNextRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = null;
+  if (refreshIntervalSeconds === 0) return;
+
+  refreshTimer = setTimeout(refreshQuota, refreshIntervalSeconds * 1000);
 }
 
 async function bootstrap() {
@@ -606,6 +677,9 @@ async function bootstrap() {
   els.textColorInput.addEventListener("input", updateThemeFromControls);
   els.opacityInput.addEventListener("input", updateThemeFromControls);
   els.fontScaleInput.addEventListener("input", updateThemeFromControls);
+  els.refreshIntervalInput.addEventListener("change", commitRefreshInterval);
+  els.refreshIntervalInput.addEventListener("blur", commitRefreshInterval);
+  els.refreshIntervalInput.addEventListener("keydown", handleRefreshIntervalKeydown);
   els.themeOverlay.addEventListener("pointerdown", closeThemePanel);
   document.addEventListener("pointerdown", closeThemePanelOnMenuOutsideClick, true);
   els.refreshBtn.addEventListener("click", refreshQuota);
@@ -898,6 +972,7 @@ function getScaledLength(name, fallback) {
 
 async function closeThemePanel() {
   if (els.themePanel.hidden && !lockedWidgetHeight) return;
+  commitRefreshInterval();
   updateThemeFromControls();
   els.themePanel.hidden = true;
   els.themeOverlay.hidden = true;
