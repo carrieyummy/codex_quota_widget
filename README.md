@@ -48,12 +48,12 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 - ↕️ **可调节信息密度**
   - 支持拖拽窗口上 / 下边缘调整高度
-  - 高度增加时显示更多额度窗口和模型限额
+  - 高度增加时显示 Codex 实际返回的主、次额度窗口
   - 高度减少时自动隐藏次要信息，保留关键额度状态
 
 - 🧭 **系统托盘图标**
   - 托盘 LED 图标颜色跟随额度状态变化
-  - 鼠标悬停可查看 Codex 与其他限额的 5 小时 / 7 天剩余额度
+  - 鼠标悬停可查看 Codex 实际返回的额度窗口及剩余额度
   - 托盘菜单支持显示 / 隐藏、刷新额度、置顶切换和退出
 
 - 🎨 **自定义外观**
@@ -84,7 +84,7 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 
 👉 [前往 Releases 下载](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-当前版本：`v1.0.6`
+当前版本：`v1.0.7`
 
 ---
 
@@ -117,7 +117,7 @@ Codex Quota Widget 是一个 Windows 桌面悬浮小组件，用于显示本机 
 | <img src="assets/color-danger.svg" width="14" height="14" alt="#ff667a" /> 红色 | 剩余额度小于 10%，但大于 0 |
 | <img src="assets/color-empty.svg" width="14" height="14" alt="#72000f" /> 深红色 | 剩余额度为 0，或额度读取失败 |
 
-额度状态会根据本机可读取到的 Codex 使用数据进行计算。窗口中会显示 5 小时限额、7 天限额和对应的重置时间；如果存在多个限额分组，也会一起显示。
+额度状态仅根据本机可读取到的 Codex 分组计算。窗口只显示实际返回的额度窗口及对应的重置时间，名称以返回的窗口时长为准（例如 5 小时或 7 天）。完整窗口默认及最大高度为 100；贴边条基础宽度为 160，同时存在主、次额度时额外增加 30，高度为 15，均随字体倍率缩放。仅有周额度时使用基础宽度；贴边状态下成功刷新额度后会自动调整宽度，读取失败时沿用最后成功数据对应的宽度。
 
 ---
 
@@ -229,7 +229,7 @@ codex_quota_widget/
 
 ### 为什么窗口变矮后少了一些信息？
 
-这是正常行为。窗口高度减少时，小组件会自动隐藏次要限额分组或 7 天限额，优先保留最关键的 Codex 额度状态。
+这是正常行为。窗口高度减少时，小组件会自动隐藏 Codex 的次额度窗口，优先保留主额度窗口；主额度窗口也可能是 7 天额度，以实际返回的数据为准。
 
 ---
 
@@ -293,13 +293,13 @@ It uses a transparent liquid-glass interface and a simple red / yellow / green L
 * ↕️ **Adjustable information density**
 
   * Drag the top or bottom edge to adjust the widget height
-  * Expand the window to show more quota windows and limit groups
+  * Expand the window to show the primary and secondary quota windows returned for Codex
   * Shrink the window to hide secondary details and keep the key quota status visible
 
 * 🧭 **System tray icon**
 
   * Tray LED color follows the current quota state
-  * Hover the tray icon to view 5h / 7d remaining quota for Codex and other limit groups
+  * Hover the tray icon to view the quota windows and remaining allowance returned for Codex
   * Tray menu supports show / hide, refresh, always-on-top toggle, and quit
 
 * 🎨 **Custom appearance**
@@ -334,7 +334,7 @@ Download the latest Windows `.exe` from the **Releases** page:
 
 👉 [Download from Releases](https://github.com/carrieyummy/codex_quota_widget/releases)
 
-Current version: `v1.0.6`
+Current version: `v1.0.7`
 
 ---
 
@@ -368,7 +368,7 @@ Current version: `v1.0.6`
 | <img src="assets/color-danger.svg" width="14" height="14" alt="#ff667a" /> Red | Remaining quota is below 10% and above 0 |
 | <img src="assets/color-empty.svg" width="14" height="14" alt="#72000f" /> Dark red | Remaining quota is 0, or the quota read failed |
 
-The remaining quota is calculated from Codex usage data available on your local machine. The widget shows 5h limits, 7d limits, and reset times. If multiple limit groups are available, they are shown together.
+The remaining quota is calculated only from the Codex limit group available on your local machine. The widget shows only the quota windows returned, with labels based on their duration (such as 5h or 7d) and their reset times. The full window has a default and maximum height of 100. The docked strip has a base width of 160, adds 30 when both primary and secondary quota windows exist, and is 15 high. These dimensions scale with the font setting. A weekly-only allowance uses the base width. Successful quota refreshes resize the docked strip automatically; failed refreshes retain the width for the last successful data.
 
 ---
 
@@ -478,7 +478,7 @@ No. The widget is intended to read and display local quota status only.
 
 ### Why does the widget show less information when it is shorter?
 
-This is expected. When the window height is reduced, the widget hides secondary limit groups or the 7d limit first, keeping the most important Codex quota status visible.
+This is expected. When the window height is reduced, the widget hides the secondary Codex quota window first and keeps the primary window visible. The primary window may itself be a 7d allowance, depending on the data returned.
 
 ---
 

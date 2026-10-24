@@ -41,7 +41,9 @@
   /* 贴边缩略条内容离窗口边缘的距离，顺序是 top/right/bottom/left。 */
   --dock-padding: 3px 5px 3px 5px;
   /* 贴边缩略条内各段文字和状态圆点之间的默认间距。 */
-  --dock-content-gap: 3px;
+  --dock-content-gap: 1px;
+  /* 190px 贴边条需容纳最长月日和两组 100%，独立于完整窗口字号。 */
+  --dock-font-size: calc(9px * var(--font-scale));
   --window-bottom-gap: 1px;
   --font-scale: 1;
   --font-size-10: calc(10px * var(--font-scale));
@@ -289,6 +291,17 @@ body[data-state="warning"] {
   gap: var(--ui-7);
 }
 
+.brand > div {
+  min-width: 0;
+}
+
+.brand-name,
+.brand-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 状态圆点：完整窗口和贴边收起条都复用这个类，收起态会单独覆盖尺寸。 */
 .traffic-light {
   flex: 0 0 auto;
@@ -334,11 +347,12 @@ body[data-state="warning"] {
 /* 右侧按钮组：必须 no-drag，否则点击按钮会被系统当成拖窗口。 */
 .window-actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   /* 右侧各按钮之间的间距；不要用这里调整品牌区和按钮组之间的空白。 */
-  gap: var(--ui-4);
+  gap: var(--ui-2);
   min-height: var(--ui-20);
   -webkit-app-region: no-drag;
 }
@@ -441,12 +455,12 @@ body[data-theme-panel="open"] .widget::before {
   outline-offset: -2px;
 }
 
-/* 贴边条里的模型名称，例如 Codex:、GPT-5.3 Spark。 */
+/* 贴边条里的 Codex 标签。 */
 .dock-label {
   flex: 0 0 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--font-size-10);
+  font-size: var(--dock-font-size);
   font-weight: 900;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -457,28 +471,43 @@ body[data-theme-panel="open"] .widget::before {
 .dock-percent {
   flex: 0 0 auto;
   color: var(--text);
-  font-size: var(--font-size-10);
+  font-size: var(--dock-font-size);
   font-weight: 900;
   line-height: 1.1;
   text-align: left;
   white-space: nowrap;
 }
 
+.dock-percent:empty {
+  display: none;
+}
+
+body[data-edge-dock="docked"][data-dock-minimal="true"] .dock-time,
+body[data-edge-dock="docked"][data-dock-minimal="true"] .dock-label,
+body[data-edge-dock="docked"][data-dock-minimal="true"] .dock-reset-date,
+body[data-edge-dock="docked"][data-dock-minimal="true"] .dock-reset {
+  display: none;
+}
+
+body[data-edge-dock="docked"][data-dock-minimal="true"] .dock-strip {
+  gap: var(--ui-4);
+}
+
 /* 贴边条里的重置月日，显示在主限额百分比与 HH:mm 之间。 */
 .dock-reset-date {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: var(--font-size-10);
+  font-size: var(--dock-font-size);
   font-weight: 800;
   line-height: 1.1;
   white-space: nowrap;
 }
 
-/* 贴边条里的 5 小时重置时间，显示为 HH:mm，放在重置月日右侧。 */
+/* 贴边条里的主额度重置时间，显示为 HH:mm，放在重置月日右侧。 */
 .dock-reset {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: var(--font-size-10);
+  font-size: var(--dock-font-size);
   font-weight: 800;
   line-height: 1.1;
   white-space: nowrap;
@@ -489,20 +518,11 @@ body[data-theme-panel="open"] .widget::before {
   flex: 0 0 auto;
   overflow: hidden;
   color: var(--muted);
-  font-size: var(--font-size-10);
+  font-size: var(--dock-font-size);
   font-weight: 800;
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 贴边条中 Codex 和 Spark 之间的竖线分隔。 */
-.dock-separator {
-  flex: 0 0 auto;
-  color: var(--muted);
-  font-size: var(--font-size-10);
-  font-weight: 900;
-  line-height: 1.1;
 }
 
 /* 贴边收起态的窗口内边距。
@@ -536,13 +556,6 @@ body[data-edge-dock="docked"] .dock-strip {
   min-width: 0;
   cursor: move;
   -webkit-app-region: drag;
-}
-
-/* Codex-only 窄贴边条由主进程 windowLimits.codexOnlyHeightThreshold 决定。 */
-body[data-edge-dock="docked"][data-dock-content="codex-only"] .dock-separator,
-body[data-edge-dock="docked"][data-dock-content="codex-only"] .dock-spark-label,
-body[data-edge-dock="docked"][data-dock-content="codex-only"] .dock-spark-value {
-  display: none;
 }
 
 /* 贴边收起态圆点：完整窗口圆点太大，所以这里单独缩小。
@@ -649,9 +662,7 @@ body[data-dock-edge="top"] .widget::before {
 }
 
 .quota-list {
-  /* 每个模型限额组之间的垂直间距。 */
   display: grid;
-  gap: 6px;
 }
 
 .quota-group {
@@ -745,12 +756,20 @@ body[data-dock-edge="top"] .widget::before {
   white-space: nowrap;
 }
 
-/* 响应式内容密度由主进程 windowLimits 阈值决定，渲染层写入 data-limit-layout。 */
-body[data-limit-layout="codex-only"] .quota-group.secondary-limit,
-body[data-limit-layout="primary-only"] .quota-group.secondary-limit {
-  display: none;
+/* 离屏完整布局用于测量，既不参与窗口排版，也不可交互。 */
+.quota-layout-probe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style paint;
 }
 
+/* 完整窗体和贴边条共用主进程计算出的布局状态。 */
 body[data-limit-layout="primary-only"] .quota-group[data-limit-id="codex"] .quota-row.secondary {
   display: none;
 }

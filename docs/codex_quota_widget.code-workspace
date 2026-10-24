@@ -1,0 +1,77 @@
+{
+	"folders": [
+		{
+			"name": "codex_quota_widget",
+			"path": ".."
+		}
+	],
+	"settings": {},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Electron: 主进程",
+				"type": "node",
+				"request": "launch",
+				"cwd": "${workspaceFolder:codex_quota_widget}",
+				"runtimeExecutable": "${workspaceFolder:codex_quota_widget}/node_modules/electron/dist/electron.exe",
+				"args": [
+					".",
+					"--remote-debugging-address=127.0.0.1",
+					"--remote-debugging-port=9222"
+				],
+				"env": {
+					"ELECTRON_RUN_AS_NODE": null
+				},
+				"console": "internalConsole",
+				"outputCapture": "std",
+				"skipFiles": ["<node_internals>/**"]
+			},
+			{
+				"name": "Electron: 渲染进程（附加）",
+				"type": "chrome",
+				"request": "attach",
+				"address": "127.0.0.1",
+				"port": 9222,
+				"timeout": 30000,
+				"webRoot": "${workspaceFolder:codex_quota_widget}"
+			}
+		],
+		"compounds": [
+			{
+				"name": "Electron: 主进程 + 渲染进程",
+				"configurations": [
+					"Electron: 主进程",
+					"Electron: 渲染进程（附加）"
+				],
+				"stopAll": true
+			}
+		]
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "安装项目依赖",
+				"type": "shell",
+				"command": "npm.cmd",
+				"args": ["ci"],
+				"options": {
+					"cwd": "${workspaceFolder:codex_quota_widget}"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "构建 Windows 安装包（NSIS）",
+				"type": "shell",
+				"command": "npm.cmd",
+				"args": ["run", "build"],
+				"options": {
+					"cwd": "${workspaceFolder:codex_quota_widget}"
+				},
+				"group": "build",
+				"problemMatcher": []
+			}
+		]
+	}
+}

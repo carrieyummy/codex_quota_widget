@@ -18,6 +18,7 @@ const i18n = {
     hide: "隐藏",
     exit: "退出",
     edgeDock: "贴边收起",
+    dockMinimal: "精简贴边条",
     restore: "恢复窗口",
     pin: "置顶",
     unpin: "取消置顶",
@@ -47,6 +48,7 @@ const i18n = {
     hide: "Hide",
     exit: "Exit",
     edgeDock: "Edge dock",
+    dockMinimal: "Minimal dock strip",
     restore: "Restore window",
     pin: "Pin",
     unpin: "Unpin",
@@ -62,14 +64,17 @@ const i18n = {
 let language = localStorage.getItem("language") || "zh";
 let isAlwaysOnTop = true;
 let edgeDockEnabled = localStorage.getItem("edgeDockEnabled") !== "false";
+let edgeDockMinimal = localStorage.getItem("edgeDockMinimal") === "true";
 let edgeDockState = { enabled: edgeDockEnabled, docked: false, edge: null };
 let refreshTimer = null;
 let latestQuota = null;
 let windowLimits = null;
 let lockedWidgetHeight = null;
 let appliedFontScale = null;
-let reportedExpandedSparkVisible = null;
-let sparkVisibilityFrame = null;
+let fontScaleSyncPromise = Promise.resolve();
+let quotaLayoutProbe = null;
+let measuredFullHeight = null;
+let quotaLayoutMetricsPromise = Promise.resolve();
 
 const THEME_CONFIG = {
   // 默认背景色；本地没有保存主题时使用。
@@ -110,6 +115,7 @@ const els = {
   fontScaleLabel: document.getElementById("fontScaleLabel"),
   langBtn: document.getElementById("langBtn"),
   pinBtn: document.getElementById("pinBtn"),
+  dockMinimalBtn: document.getElementById("dockMinimalBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
   minimizeBtn: document.getElementById("minimizeBtn"),
   closeBtn: document.getElementById("closeBtn"),
@@ -119,10 +125,6 @@ const els = {
   dockCodexPrimaryResetDate: document.getElementById("dockCodexPrimaryResetDate"),
   dockCodexPrimaryReset: document.getElementById("dockCodexPrimaryReset"),
   dockCodexSecondary: document.getElementById("dockCodexSecondary"),
-  dockSparkPrimary: document.getElementById("dockSparkPrimary"),
-  dockSparkPrimaryResetDate: document.getElementById("dockSparkPrimaryResetDate"),
-  dockSparkPrimaryReset: document.getElementById("dockSparkPrimaryReset"),
-  dockSparkSecondary: document.getElementById("dockSparkSecondary"),
   dockUpdatedAt: document.getElementById("dockUpdatedAt"),
   quotaList: document.getElementById("quotaList")
 };
@@ -147,7 +149,9 @@ function applyLabels() {
   els.dockStrip.setAttribute("aria-label", t("restore"));
   updatePinButton();
   updateEdgeDockButton();
+  updateDockMinimalButton();
   updateDockSummary(latestQuota);
+  updateLimitLayout();
 }
 
 function loadTheme() {
@@ -183,7 +187,7 @@ function applyTheme(theme) {
   document.documentElement.style.setProperty("--font-scale", fontScale.toFixed(2));
   applyScaledLengthVariables(fontScale);
   updateLockedWidgetHeightForFontScale(fontScale);
-  syncFontScaleToWindow(fontScale);
+  return syncFontScaleToWindow(fontScale);
 }
 
 function applyScaledLengthVariables(fontScale) {
@@ -232,17 +236,17 @@ function applyQuotaLayoutVariables(limits) {
 
 function syncFontScaleToWindow(fontScale) {
   const nextFontScale = normalizeFontScale(fontScale);
-  if (appliedFontScale === nextFontScale) return;
+  if (appliedFontScale === nextFontScale) return fontScaleSyncPromise;
 
   appliedFontScale = nextFontScale;
-  window.codexQuota?.setFontScale?.(nextFontScale)
+  fontScaleSyncPromise = window.codexQuota.setFontScale(nextFontScale)
     .then((limits) => {
       if (!limits) return;
       windowLimits = limits;
       applyQuotaLayoutVariables(limits);
-      updateLimitLayout();
-    })
-    .catch(() => {});
+      return updateLimitLayout();
+    });
+  return fontScaleSyncPromise;
 }
 
 function updateLockedWidgetHeightForFontScale(fontScale) {
@@ -330,6 +334,14 @@ function updateEdgeDockButton() {
   els.minimizeBtn.setAttribute("aria-pressed", String(edgeDockEnabled));
 }
 
+function updateDockMinimalButton() {
+  els.dockMinimalBtn.classList.toggle("active", edgeDockMinimal);
+  els.dockMinimalBtn.title = t("dockMinimal");
+  els.dockMinimalBtn.setAttribute("aria-label", t("dockMinimal"));
+  els.dockMinimalBtn.setAttribute("aria-pressed", String(edgeDockMinimal));
+  els.body.dataset.dockMinimal = String(edgeDockMinimal);
+}
+
 function setState(state, message) {
   els.body.dataset.state = state;
   els.trafficLight.classList.toggle("loading", state === "loading");
@@ -409,30 +421,20 @@ function updateQuota(quota) {
   renderQuotaList(quota.limits || []);
   updateDockSummary(quota);
   setState(state, statusTextForQuota(quota, state));
+  return updateLimitLayout();
 }
 
 function updateDockSummary(quota) {
   const limits = quota?.limits || [];
-  const codexLimit = findDockLimit(limits, /codex/i) || limits[0];
-  const sparkLimit = findDockLimit(limits, /spark|gpt/i, codexLimit) || limits.find((limit) => limit !== codexLimit);
+  const codexLimit = limits.find((limit) => limit.limitId === "codex");
   const fetchedAt = quota?.fetchedAt ? new Date(quota.fetchedAt) : null;
 
   els.dockCodexPrimary.textContent = formatCompactPercent(codexLimit?.primary);
   els.dockCodexPrimaryResetDate.textContent = formatCompactReset(codexLimit?.primary, "date");
   els.dockCodexPrimaryReset.textContent = formatCompactReset(codexLimit?.primary, "time");
-  els.dockCodexSecondary.textContent = formatCompactPercent(codexLimit?.secondary, "");
-  els.dockSparkPrimary.textContent = formatCompactPercent(sparkLimit?.primary);
-  els.dockSparkPrimaryResetDate.textContent = formatCompactReset(sparkLimit?.primary, "date");
-  els.dockSparkPrimaryReset.textContent = formatCompactReset(sparkLimit?.primary, "time");
-  els.dockSparkSecondary.textContent = formatCompactPercent(sparkLimit?.secondary, "");
+  els.dockCodexSecondary.textContent = edgeDockState.limitLayout === "primary-only"
+    ? "" : formatCompactPercent(codexLimit?.secondary, "");
   els.dockUpdatedAt.textContent = fetchedAt && Number.isFinite(fetchedAt.getTime()) ? formatClockTime(fetchedAt) : "--:--";
-}
-
-function findDockLimit(limits, pattern, excludedLimit) {
-  return limits.find((limit) => {
-    if (limit === excludedLimit) return false;
-    return pattern.test(`${limit.limitId || ""} ${limit.limitName || ""}`);
-  });
 }
 
 function formatCompactPercent(window, fallback = "--") {
@@ -451,15 +453,12 @@ function renderQuotaList(limits) {
     const group = document.createElement("section");
     group.className = "quota-group";
     group.dataset.limitId = limit.limitId || "";
-    if (limit.limitId !== "codex") group.classList.add("secondary-limit");
 
     const title = document.createElement("h2");
     title.textContent = limit.limitName || t("unknown");
     group.appendChild(title);
 
-    // 新版 Codex 接口会只返回一个 primary 窗口，且该窗口可能就是 7 天额度。
-    // 仅渲染实际存在的窗口，并以 windowDurationMins 为准显示名称；保留旧接口
-    // 的 primary/secondary 兜底标签，兼容仍会返回两个窗口的 Codex 版本。
+    // 仅渲染实际存在的额度窗口；primary 也可能是周额度，以返回的时长显示名称。
     if (limit.primary) {
       group.appendChild(createQuotaRow(getWindowLabel(limit.primary, "primary"), limit.primary, "primary"));
     }
@@ -469,7 +468,8 @@ function renderQuotaList(limits) {
     els.quotaList.appendChild(group);
   }
 
-  updateLimitLayout();
+  // 只用成功刷新的额度更新测量内容，读取失败后仍保留最近有效的几何信息。
+  ensureQuotaLayoutProbe().content.replaceChildren(els.quotaList.cloneNode(true));
 }
 
 function getWindowLabel(window, fallbackKey) {
@@ -555,7 +555,7 @@ async function refreshQuota() {
 
   try {
     const quota = await window.codexQuota.getQuota();
-    updateQuota(quota);
+    await updateQuota(quota);
     refreshTimer = setTimeout(refreshQuota, 60000);
   } catch (error) {
     els.quotaList.textContent = "";
@@ -566,6 +566,7 @@ async function refreshQuota() {
 }
 
 async function bootstrap() {
+  const initiallyEnabled = edgeDockEnabled;
   configureThemeControls();
   if (window.codexQuota?.getWindowLimits) {
     windowLimits = await window.codexQuota.getWindowLimits();
@@ -579,14 +580,13 @@ async function bootstrap() {
   els.textColorInput.value = theme.textColor;
   els.opacityInput.value = String(theme.opacity);
   els.fontScaleInput.value = String(theme.fontScale);
-  applyTheme(theme);
+  await applyTheme(theme);
   applyLabels();
 
   if (window.codexQuota) {
     isAlwaysOnTop = await window.codexQuota.getAlwaysOnTop();
     window.codexQuota.setLanguage?.(language);
-    edgeDockEnabled = Boolean(await window.codexQuota.setEdgeDockEnabled?.(edgeDockEnabled));
-    localStorage.setItem("edgeDockEnabled", String(edgeDockEnabled));
+    await window.codexQuota.setEdgeDockMinimal(edgeDockMinimal);
     applyEdgeDockState(await window.codexQuota.getEdgeDockState?.());
     updatePinButton();
     updateEdgeDockButton();
@@ -610,10 +610,10 @@ async function bootstrap() {
   document.addEventListener("pointerdown", closeThemePanelOnMenuOutsideClick, true);
   els.refreshBtn.addEventListener("click", refreshQuota);
   els.minimizeBtn.addEventListener("click", toggleEdgeDock);
+  els.dockMinimalBtn.addEventListener("click", toggleDockMinimal);
   els.closeBtn.addEventListener("click", () => window.codexQuota?.minimize());
   els.dockStrip.addEventListener("click", restoreEdgeDock);
   els.dockStrip.addEventListener("keydown", restoreEdgeDockFromKeyboard);
-  document.querySelector(".content")?.addEventListener("scroll", scheduleExpandedSparkVisibilityReport);
   initResizeHandles();
   els.pinBtn.addEventListener("click", async () => {
     isAlwaysOnTop = await window.codexQuota.setAlwaysOnTop(!isAlwaysOnTop);
@@ -632,10 +632,20 @@ async function bootstrap() {
     updateEdgeDockButton();
   });
 
-  refreshQuota();
+  await document.fonts.ready;
+  document.fonts.addEventListener("loadingdone", updateLimitLayout);
+  await refreshQuota();
+  await window.codexQuota.setEdgeDockEnabled(initiallyEnabled);
 }
 
 bootstrap();
+
+async function toggleDockMinimal() {
+  const minimal = await window.codexQuota.setEdgeDockMinimal(!edgeDockMinimal);
+  edgeDockMinimal = minimal;
+  localStorage.setItem("edgeDockMinimal", String(minimal));
+  updateDockMinimalButton();
+}
 
 async function toggleEdgeDock() {
   if (!window.codexQuota?.setEdgeDockEnabled) return;
@@ -648,28 +658,29 @@ function applyEdgeDockState(state) {
   if (!state) return;
   edgeDockState = {
     enabled: Boolean(state.enabled),
+    minimal: Boolean(state.minimal),
     docked: Boolean(state.docked),
-    compact: Boolean(state.compact),
-    edge: state.edge || null
+    edge: state.edge || null,
+    limitLayout: state.limitLayout,
+    expandedBounds: state.expandedBounds
   };
   edgeDockEnabled = edgeDockState.enabled;
+  edgeDockMinimal = edgeDockState.minimal;
 
   els.body.dataset.edgeDock = edgeDockState.docked ? "docked" : "expanded";
   if (edgeDockState.docked && edgeDockState.edge) {
     els.body.dataset.dockEdge = edgeDockState.edge;
-    els.body.dataset.dockContent = edgeDockState.compact ? "codex-only" : "full";
   } else {
     delete els.body.dataset.dockEdge;
-    delete els.body.dataset.dockContent;
   }
 
   localStorage.setItem("edgeDockEnabled", String(edgeDockEnabled));
+  localStorage.setItem("edgeDockMinimal", String(edgeDockMinimal));
+  updateDockMinimalButton();
   updateEdgeDockButton();
-  if (!edgeDockState.docked) {
-    updateLimitLayout();
-  } else {
-    scheduleExpandedSparkVisibilityReport();
-  }
+  els.body.dataset.limitLayout = edgeDockState.limitLayout;
+  updateDockSummary(latestQuota);
+  updateLimitLayout();
 }
 
 function restoreEdgeDock(event) {
@@ -748,103 +759,58 @@ function calculateResizeBounds(startBounds, edge, dx, dy) {
   return next;
 }
 
+function ensureQuotaLayoutProbe() {
+  if (quotaLayoutProbe) return quotaLayoutProbe;
+
+  const host = document.createElement("div");
+  host.className = "quota-layout-probe";
+  host.setAttribute("aria-hidden", "true");
+  host.inert = true;
+  // Shadow DOM 共用同一份样式和继承的主题变量，但隔离 body 的贴边/单行隐藏规则。
+  const shadow = host.attachShadow({ mode: "open" });
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync([...document.styleSheets].flatMap(styleSheet => [...styleSheet.cssRules].map(rule => rule.cssText)).join("\n"));
+  shadow.adoptedStyleSheets = [sheet];
+  const widget = document.createElement("main");
+  widget.className = "widget";
+  const content = document.createElement("section");
+  content.className = "content";
+  widget.appendChild(content);
+  shadow.appendChild(widget);
+  document.body.appendChild(host);
+  quotaLayoutProbe = { host, widget, content };
+  return quotaLayoutProbe;
+}
+
 function updateLimitLayout() {
-  if (!windowLimits) {
-    delete els.body.dataset.limitLayout;
-    scheduleExpandedSparkVisibilityReport();
-    return;
+  if (!windowLimits || !edgeDockState.expandedBounds || !quotaLayoutProbe?.content.firstElementChild) {
+    return quotaLayoutMetricsPromise;
   }
 
-  const layoutHeight = lockedWidgetHeight || window.innerHeight;
-
-  if (layoutHeight <= windowLimits.primaryOnlyHeightThreshold) {
-    els.body.dataset.limitLayout = "primary-only";
-  } else if (canShowSparkInFullLayout()) {
-    els.body.dataset.limitLayout = "full";
-  } else {
-    els.body.dataset.limitLayout = "codex-only";
-  }
-
-  scheduleExpandedSparkVisibilityReport();
-}
-
-function canShowSparkInFullLayout() {
-  const sparkGroup = getSparkGroup();
-  if (!sparkGroup) {
-    const layoutHeight = lockedWidgetHeight || window.innerHeight;
-    return layoutHeight > windowLimits.codexOnlyHeightThreshold;
-  }
-
-  const previousLayout = els.body.dataset.limitLayout;
-  els.body.dataset.limitLayout = "full";
-
-  const isVisible = isSparkGroupVisibleInExpandedWindow(sparkGroup);
-
-  if (previousLayout) {
-    els.body.dataset.limitLayout = previousLayout;
-  } else {
-    delete els.body.dataset.limitLayout;
-  }
-
-  return isVisible;
-}
-
-function scheduleExpandedSparkVisibilityReport() {
-  if (sparkVisibilityFrame !== null) return;
-
-  sparkVisibilityFrame = requestAnimationFrame(() => {
-    sparkVisibilityFrame = null;
-    reportExpandedSparkVisibility();
-  });
-}
-
-function reportExpandedSparkVisibility() {
-  if (!window.codexQuota?.setExpandedSparkVisible) return;
-  if (!canReportExpandedSparkVisibility()) return;
-
-  const sparkGroup = getSparkGroup();
-  if (!sparkGroup) return;
-
-  const isVisible = isSparkGroupVisibleInExpandedWindow(sparkGroup);
-  if (reportedExpandedSparkVisible === isVisible) return;
-
-  reportedExpandedSparkVisible = isVisible;
-  window.codexQuota.setExpandedSparkVisible(isVisible).catch(() => {});
-}
-
-function canReportExpandedSparkVisibility() {
-  if (edgeDockState.docked) return false;
-  if (!windowLimits) return true;
-
-  return window.innerHeight > windowLimits.dockHeight + 2;
-}
-
-function getSparkGroup() {
-  return els.quotaList.querySelector(".quota-group.secondary-limit");
-}
-
-function isSparkGroupVisibleInExpandedWindow(sparkGroup) {
-  const style = getComputedStyle(sparkGroup);
-  if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
-    return false;
-  }
-
-  const target = sparkGroup.querySelector(".quota-row.primary") || sparkGroup;
-  const targetRect = target.getBoundingClientRect();
-  const contentRect = document.querySelector(".content")?.getBoundingClientRect();
-  const widgetRect = document.querySelector(".widget")?.getBoundingClientRect();
-  if (!contentRect || !widgetRect || targetRect.width <= 0 || targetRect.height <= 0) return false;
-
-  const clipRect = {
-    top: Math.max(0, contentRect.top, widgetRect.top),
-    right: Math.min(window.innerWidth, contentRect.right, widgetRect.right),
-    bottom: Math.min(window.innerHeight, contentRect.bottom, widgetRect.bottom),
-    left: Math.max(0, contentRect.left, widgetRect.left)
-  };
-
-  const visibleWidth = Math.min(targetRect.right, clipRect.right) - Math.max(targetRect.left, clipRect.left);
-  const visibleHeight = Math.min(targetRect.bottom, clipRect.bottom) - Math.max(targetRect.top, clipRect.top);
-  return visibleWidth > 1 && visibleHeight > 1;
+  const { widget, content } = quotaLayoutProbe;
+  widget.querySelector(".titlebar")?.remove();
+  widget.prepend(document.querySelector(".titlebar").cloneNode(true));
+  const referenceHeight = windowLimits.maxHeight;
+  widget.style.width = `${edgeDockState.expandedBounds.width}px`;
+  widget.style.setProperty("--widget-height", `${referenceHeight}px`);
+  content.scrollTop = 0;
+  const widgetStyle = getComputedStyle(widget);
+  const contentStyle = getComputedStyle(content);
+  const px = (style, name) => Number.parseFloat(style.getPropertyValue(name));
+  const listHeight = content.firstElementChild.getBoundingClientRect().height;
+  const contentInsets = px(contentStyle, "padding-top") + px(contentStyle, "padding-bottom")
+    + px(contentStyle, "border-top-width") + px(contentStyle, "border-bottom-width");
+  const contentHeight = listHeight + contentInsets;
+  const outerRequiredHeight = content.getBoundingClientRect().top - widget.getBoundingClientRect().top
+    + contentHeight + px(contentStyle, "margin-bottom") + px(widgetStyle, "padding-bottom")
+    + px(widgetStyle, "border-bottom-width") + px(widgetStyle, "--window-bottom-gap");
+  // 内容 max-height 也是独立的裁剪边界，不能只检查窗口底边。
+  const clipRequiredHeight = referenceHeight - px(contentStyle, "max-height") + contentHeight;
+  const requiredFullHeight = Math.ceil(Math.max(outerRequiredHeight, clipRequiredHeight));
+  if (measuredFullHeight === requiredFullHeight) return quotaLayoutMetricsPromise;
+  measuredFullHeight = requiredFullHeight;
+  quotaLayoutMetricsPromise = window.codexQuota.setQuotaLayoutMetrics({ requiredFullHeight });
+  return quotaLayoutMetricsPromise;
 }
 
 async function toggleThemePanel() {
