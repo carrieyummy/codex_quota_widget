@@ -35,41 +35,28 @@ function findExtensionCodexCandidates(extensionsDir) {
 
 async function getQuota() {
   const response = await requestRateLimits();
-  const snapshots = collectSnapshots(response);
+  const snapshot = response.rateLimitsByLimitId
+    ? response.rateLimitsByLimitId.codex
+    : response.rateLimits;
 
-  if (snapshots.length === 0) {
+  if (!snapshot || (snapshot.limitId && snapshot.limitId !== "codex")) {
     throw new Error("Codex did not return a rate-limit snapshot.");
   }
 
-  return normalizeQuotaResponse(snapshots);
+  return normalizeQuotaResponse(snapshot);
 }
 
-function collectSnapshots(response) {
-  const byId = response.rateLimitsByLimitId;
-  if (byId && typeof byId === "object") {
-    const orderedIds = ["codex", ...Object.keys(byId).filter((id) => id !== "codex").sort()];
-    return orderedIds.map((id) => byId[id]).filter(Boolean);
-  }
-
-  return response.rateLimits ? [response.rateLimits] : [];
-}
-
-function normalizeQuotaResponse(snapshots) {
-  const limits = snapshots.map(normalizeSnapshot);
-  const windows = limits.flatMap((limit) =>
-    [
-      limit.primary ? { limit, window: limit.primary } : null,
-      limit.secondary ? { limit, window: limit.secondary } : null
-    ].filter(Boolean)
-  );
-  const activeWindow = windows.reduce((lowest, item) => {
-    if (!lowest) return item.window;
-    return item.window.remainingPercent < lowest.remainingPercent ? item.window : lowest;
+function normalizeQuotaResponse(snapshot) {
+  const limit = normalizeSnapshot(snapshot);
+  const windows = [limit.primary, limit.secondary].filter(Boolean);
+  const activeWindow = windows.reduce((lowest, window) => {
+    if (!lowest) return window;
+    return window.remainingPercent < lowest.remainingPercent ? window : lowest;
   }, null);
 
   return {
-    limits,
-    planType: limits[0]?.planType || "unknown",
+    limits: [limit],
+    planType: limit.planType,
     remainingPercent: activeWindow ? activeWindow.remainingPercent : null,
     usedPercent: activeWindow ? activeWindow.usedPercent : null,
     resetsAt: activeWindow ? activeWindow.resetsAt : null,

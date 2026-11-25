@@ -17,11 +17,12 @@ let currentLanguage = "zh";
 let latestQuota;
 let currentFontScale = 1;
 let themePanelBaseBounds = null;
-// 渲染层按真实 DOM 可见性上报：完整窗口里 Spark 分组是否可见。
-// null 表示尚未收到上报，此时只作为启动早期 fallback 使用高度阈值。
-let expandedSparkVisible = null;
+// 渲染层按实际完整布局测量；未收到首份测量前不自动贴边。
+let requiredFullHeight = null;
 // 贴边收起功能总开关，对应标题栏里的“贴边收起”按钮。
 let edgeDockEnabled = false;
+// 精简贴边条仅显示 LED 和主、次额度百分比。
+let edgeDockMinimal = false;
 // 当前贴边状态。null 表示普通窗口；对象表示已吸附到某个边，并保存 restoreBounds。
 let edgeDockState = null;
 // true 表示当前是“鼠标悬停后展开的完整窗口预览”，鼠标移出后会恢复缩略条。
@@ -61,20 +62,17 @@ const windowLimits = {
   quotaValueColumn: 170,
   quotaRowGap: 16,
   quotaRowPaddingRight: 6,
-  // 同时显示 Codex + Spark 的贴边缩略条宽度。需要留够两个主限额的百分比、重置月日和 HH:mm。
-  dockFullWidth: 380,
-  // 只显示 Codex 限额时的贴边缩略条宽度。需要留够 HH:mm Codex: 100% 7月13日 14:44 100%。
-  dockCodexOnlyWidth: 190,
+  // Codex 单额度贴边缩略条宽度，随字体倍率缩放。
+  dockWidth: 160,
+  dockMinimalWidth: 52,
+  // 同时存在主、次额度时，为第二个百分比额外预留的宽度。
+  dockSecondaryExtraWidth: 30,
   // 完整窗口可手动缩放到的最小高度。
   minHeight: 84,
   // 完整窗口可手动缩放到的最大高度。
-  maxHeight: 140, /* 已经手动优化，不要改动 */
+  maxHeight: 100,
   // 顶部贴边缩略条高度。只影响缩略态，不影响完整窗口最小高度。
   dockHeight: 15,
-  // 完整窗口高度小于等于这个值时，界面只显示 Codex 限额；贴边后也会隐藏 Spark 并使用 dockCodexOnlyWidth。
-  codexOnlyHeightThreshold: 100,
-  // 完整窗口高度小于等于这个值时，界面只显示 Codex 的主限额。
-  primaryOnlyHeightThreshold: 83,
   themePanelExtraHeight: 120,
   // 距离屏幕/工作区上边缘多少像素以内触发顶部贴边收起。
   edgeThreshold: 32,
@@ -123,11 +121,10 @@ function getActiveWindowLimits() {
     quotaRowGap: Math.round(windowLimits.quotaRowGap * scale),
     quotaRowPaddingRight: Math.round(windowLimits.quotaRowPaddingRight * scale),
     maxHeight: Math.round(windowLimits.maxHeight * scale),
-    dockFullWidth: Math.round(windowLimits.dockFullWidth * scale),
-    dockCodexOnlyWidth: Math.round(windowLimits.dockCodexOnlyWidth * scale),
+    dockWidth: Math.round(windowLimits.dockWidth * scale),
+    dockMinimalWidth: Math.round(windowLimits.dockMinimalWidth * scale),
+    dockSecondaryExtraWidth: Math.round(windowLimits.dockSecondaryExtraWidth * scale),
     dockHeight: Math.round(windowLimits.dockHeight * scale),
-    codexOnlyHeightThreshold: Math.round(windowLimits.codexOnlyHeightThreshold * scale),
-    primaryOnlyHeightThreshold: Math.round(windowLimits.primaryOnlyHeightThreshold * scale),
     themePanelExtraHeight: Math.round(windowLimits.themePanelExtraHeight * scale)
   };
 }
@@ -146,7 +143,7 @@ function getWindowMaximumSize() {
   const limits = getActiveWindowLimits();
 
   return {
-    width: Math.max(limits.maxWidth, limits.dockFullWidth),
+    width: Math.max(limits.maxWidth, limits.dockWidth + limits.dockSecondaryExtraWidth),
     height: limits.maxHeight + limits.themePanelExtraHeight
   };
 }
@@ -156,7 +153,7 @@ function updateWindowSizeLimits() {
   const limits = getActiveWindowLimits();
   const maximum = getWindowMaximumSize();
 
-  mainWindow.setMinimumSize(Math.min(limits.dockCodexOnlyWidth, limits.minWidth), limits.dockHeight);
+  mainWindow.setMinimumSize(Math.min(limits.dockMinimalWidth, limits.minWidth), limits.dockHeight);
   mainWindow.setMaximumSize(maximum.width, maximum.height);
 }
 
@@ -177,7 +174,7 @@ function createWindow() {
     height: savedBounds.height,
     x: savedBounds.x,
     y: savedBounds.y,
-    minWidth: Math.min(limits.dockCodexOnlyWidth, limits.minWidth),
+    minWidth: Math.min(limits.dockMinimalWidth, limits.minWidth),
     maxWidth: maximum.width,
     minHeight: limits.dockHeight,
     maxHeight: maximum.height,
@@ -213,6 +210,7 @@ function createWindow() {
     updateWindowHitTestShape();
     rememberNormalBounds();
     scheduleSaveWindowBounds();
+    sendEdgeDockState();
   });
   mainWindow.on("move", () => {
     rememberNormalBounds();
@@ -441,6 +439,7 @@ function applyWindowBounds(bounds) {
   } finally {
     isApplyingWindowBounds = false;
   }
+  sendEdgeDockState();
 }
 
 function updateWindowHitTestShape(bounds = mainWindow?.getBounds()) {
@@ -519,13 +518,14 @@ function scheduleEdgeDockCheck() {
 // 3. 非顶部边缘只做工作区边界夹紧。
 function checkEdgeDock() {
   if (!mainWindow || mainWindow.isDestroyed() || Date.now() < edgeDockSuppressedUntil) return;
+  if (themePanelBaseBounds) return;
   const bounds = mainWindow.getBounds();
   if (edgeDockState) {
     restoreEdgeDockAfterDrag(bounds);
     return;
   }
 
-  const edgeInfo = edgeDockEnabled ? getTopDockEdgeInfo(bounds) : null;
+  const edgeInfo = edgeDockEnabled && requiredFullHeight !== null ? getTopDockEdgeInfo(bounds) : null;
 
   if (edgeInfo) {
     dockToTopEdge(edgeInfo.workArea, bounds);
@@ -573,7 +573,7 @@ function dockToTopEdge(workArea, bounds) {
 // 参数 restoreBounds 是完整窗口恢复位置；workArea 是当前屏幕工作区。
 // 返回顶部缩略条 bounds；高度由 getDockHeight/windowLimits.dockHeight 控制。
 function getDockBounds(restoreBounds, workArea) {
-  const width = Math.min(getDockWidth(restoreBounds), workArea.width);
+  const width = Math.min(getDockWidth(), workArea.width);
   const height = getDockHeight();
 
   return {
@@ -584,25 +584,27 @@ function getDockBounds(restoreBounds, workArea) {
   };
 }
 
-// 根据渲染层上报的完整窗口 Spark 可见性决定贴边条宽度。
-// 启动早期尚未收到上报时，临时用高度阈值 fallback。
-function getDockWidth(restoreBounds) {
-  const limits = getActiveWindowLimits();
-  if (!shouldShowSparkInDock(restoreBounds)) {
-    return limits.dockCodexOnlyWidth;
-  }
-  return limits.dockFullWidth;
+// 按完整窗体可显示的额度数量加宽；先合计基础尺寸，再随字体倍率取整。
+function getDockWidth() {
+  const codexLimit = latestQuota?.limits?.find((limit) => limit.limitId === "codex");
+  const extraWidth = codexLimit?.primary && codexLimit?.secondary && getLimitLayout() === "full"
+    ? windowLimits.dockSecondaryExtraWidth : 0;
+  const baseWidth = edgeDockMinimal ? windowLimits.dockMinimalWidth : windowLimits.dockWidth;
+  return Math.round((baseWidth + extraWidth) * normalizeFontScale(currentFontScale));
 }
 
-// 启动早期 fallback 用的高度阈值；正式贴边显示以渲染层 DOM 可见性上报为准。
-function isCodexOnlyHeight(bounds) {
-  const height = Number(bounds?.height);
-  return Number.isFinite(height) && height <= getActiveWindowLimits().codexOnlyHeightThreshold;
+function setEdgeDockMinimal(value) {
+  edgeDockMinimal = Boolean(value);
+  updateDockWindowBounds();
+  sendEdgeDockState();
+  return edgeDockMinimal;
 }
 
-function shouldShowSparkInDock(restoreBounds) {
-  if (typeof expandedSparkVisible === "boolean") return expandedSparkVisible;
-  return !isCodexOnlyHeight(restoreBounds);
+// 刷新数据或字体倍率后，仅更新收起态尺寸，不覆盖完整窗口的恢复尺寸。
+function updateDockWindowBounds() {
+  if (!mainWindow || mainWindow.isDestroyed() || !edgeDockState || edgeDockPreview) return;
+  const { workArea } = screen.getDisplayMatching(mainWindow.getBounds());
+  applyWindowBounds(getDockBounds(edgeDockState.restoreBounds, workArea));
 }
 
 // 返回缩略条高度。需要调缩略条厚度时改 windowLimits.dockHeight。
@@ -806,13 +808,36 @@ function clampBoundsToWorkArea(bounds, workArea) {
 // 返回给渲染层使用的贴边状态。
 // docked=true 表示显示缩略条；preview=true 表示鼠标悬停展开中的完整窗口。
 function getEdgeDockState() {
+  const { width, height } = getQuotaLayoutBounds();
   return {
     enabled: edgeDockEnabled,
+    minimal: edgeDockMinimal,
     docked: Boolean(edgeDockState) && !edgeDockPreview,
     preview: edgeDockPreview,
-    compact: Boolean(edgeDockState && !shouldShowSparkInDock(edgeDockState.restoreBounds)),
-    edge: edgeDockState?.edge || null
+    edge: edgeDockState?.edge || null,
+    limitLayout: getLimitLayout(),
+    expandedBounds: { width, height }
   };
+}
+
+function getQuotaLayoutBounds() {
+  return themePanelBaseBounds || edgeDockState?.restoreBounds || mainWindow?.getBounds() || getDefaultBounds();
+}
+
+function getLimitLayout() {
+  return requiredFullHeight !== null && getQuotaLayoutBounds().height < requiredFullHeight ? "primary-only" : "full";
+}
+
+function setQuotaLayoutMetrics(metrics) {
+  if (!Number.isFinite(metrics?.requiredFullHeight) || metrics.requiredFullHeight <= 0) {
+    throw new TypeError("requiredFullHeight must be a positive finite number");
+  }
+  const firstMeasurement = requiredFullHeight === null;
+  requiredFullHeight = Math.ceil(metrics.requiredFullHeight);
+  updateDockWindowBounds();
+  sendEdgeDockState();
+  if (firstMeasurement) scheduleEdgeDockCheck();
+  return getEdgeDockState();
 }
 
 function getWindowLimits() {
@@ -860,22 +885,9 @@ function setFontScale(value) {
     }
   }
 
-  return getWindowLimits();
-}
-
-function setExpandedSparkVisible(value) {
-  const nextVisible = Boolean(value);
-  if (expandedSparkVisible === nextVisible) return getEdgeDockState();
-
-  expandedSparkVisible = nextVisible;
-
-  if (mainWindow && !mainWindow.isDestroyed() && edgeDockState && !edgeDockPreview) {
-    const { workArea } = screen.getDisplayMatching(mainWindow.getBounds());
-    applyWindowBounds(getDockBounds(edgeDockState.restoreBounds, workArea));
-  }
-
+  updateDockWindowBounds();
   sendEdgeDockState();
-  return getEdgeDockState();
+  return getWindowLimits();
 }
 
 function sendEdgeDockState() {
@@ -912,14 +924,9 @@ function createTrayTooltip(state, quota) {
         limit.primary ? formatTrayWindow(limit.primary, "5h") : null,
         limit.secondary ? formatTrayWindow(limit.secondary, "7d") : null
       ].filter(Boolean);
-      return `${formatTrayLimitName(limit)}: ${windows.join(" / ") || "--"}`;
+      return `Codex: ${windows.join(" / ") || "--"}`;
     })
   ].join("\n");
-}
-
-function formatTrayLimitName(limit) {
-  if (limit.limitId === "codex") return "Codex";
-  return limit.limitName || limit.limitId || "Unknown";
 }
 
 function formatTrayWindow(window, fallbackLabel) {
@@ -1104,6 +1111,7 @@ app.whenReady().then(() => {
     try {
       const quota = await getQuota();
       latestQuota = quota;
+      updateDockWindowBounds();
       updateTrayStatus(getQuotaState(quota), quota);
       return quota;
     } catch (error) {
@@ -1113,15 +1121,16 @@ app.whenReady().then(() => {
   });
   ipcMain.handle("window:minimize", () => hideWindowToTray());
   ipcMain.handle("window:limits:get", () => getWindowLimits());
+  ipcMain.handle("window:quotaLayout:setMetrics", (_event, metrics) => setQuotaLayoutMetrics(metrics));
   ipcMain.handle("window:bounds:get", () => mainWindow?.getBounds());
   ipcMain.handle("window:bounds:set", (_event, bounds) => setWindowBounds(bounds));
   ipcMain.handle("window:themePanel:setOpen", (_event, value) => setThemePanelOpen(value));
   ipcMain.handle("window:fontScale:set", (_event, value) => setFontScale(value));
-  ipcMain.handle("window:expandedSparkVisible:set", (_event, value) => setExpandedSparkVisible(value));
   ipcMain.handle("window:alwaysOnTop:get", () => isAlwaysOnTop);
   ipcMain.handle("window:alwaysOnTop:set", (_event, value) => setAlwaysOnTop(value));
   ipcMain.handle("window:edgeDock:get", () => getEdgeDockState());
   ipcMain.handle("window:edgeDock:set", (_event, value) => setEdgeDockEnabled(value));
+  ipcMain.handle("window:edgeDock:setMinimal", (_event, value) => setEdgeDockMinimal(value));
   ipcMain.handle("window:edgeDock:restore", () => restoreEdgeDock());
   ipcMain.handle("app:language:set", (_event, language) => {
     currentLanguage = language === "en" ? "en" : "zh";
