@@ -1,0 +1,15 @@
+[
+  { "group": "资金与到期", "name": "订阅赠送额度", "unit": "USD", "access": "授予金额与周期由用户提供；消费由 Usage 与配置单价估算", "formula": "本笔剩余 ≈ 本笔实际授予 − 分配给本笔的消费 − 到期/撤销额", "note": "本期已知授予来自用户记录；UTC 零点边界仍是假设。月度赠送按实际到期日失效，不自动结转。", "source": "credits" },
+  { "group": "资金与到期", "name": "其他赠送 / 试用 / 活动额度", "unit": "USD", "access": "管理员 Costs/Usage 不包含完整发放账本；当前未知", "formula": "按每笔授予、生效、到期和撤销事件分别记账", "note": "不能把未查询到的其他赠送当成零，也不能按订阅档位推定实际发放额。", "source": "credits" },
+  { "group": "资金与到期", "name": "购买额度", "unit": "USD", "access": "需要购买和剩余批次记录；当前未知", "formula": "购买余额 = 开始时有效余额 + 到账充值 − 分配消费 − 到期/退款调整", "note": "同组织内先扣适用的赠送，再扣购买。购买额度按自身到期记录处理，不随赠送周期清零。", "source": "purchased" },
+  { "group": "资金与到期", "name": "组织总余额", "unit": "USD", "access": "缺少完整账本时不能仅靠管理员用量计算；当前未知", "formula": "总余额 = 所有有效赠送余额 + 所有有效购买余额（同组织、同一可抵扣范围）", "note": "本期赠送估算是已知子集；不同产品、组织或币种不可合计。", "source": "credits" },
+  { "group": "资金与到期", "name": "到期、退款与撤销", "unit": "USD / 时间", "access": "需要逐笔事件；目前只知道本期赠送到期日期", "formula": "按时间顺序处理发放、消费、到期和调整；到期只移除该笔尚未使用部分", "note": "到期日未知应保持未知。不能把历史累计消费简单从新一期授予扣除，也不能每月把所有购买额度重置。", "source": "purchased" },
+  { "group": "资金与到期", "name": "自动充值与充值月限额", "unit": "USD", "access": "需要 Billing 设置，当前未采集；研究不修改充值设置", "formula": "余额触发阈值 → 新增购买批次；充值月限额统计自动购买金额", "note": "充值月限额限制购买，不是可消费余额或 API 使用上限。", "source": "purchased" },
+  { "group": "消费与计价", "name": "官方费用 Costs", "unit": "USD", "access": "管理员 API 可读；空记录与限流不能当作零消费", "formula": "同周期、同币种逐项汇总 amount；保留查询截止时间与分页状态", "note": "观测费用与 token 估算独立对照，不相加重复扣减。成本记录不是充值/赠送账本。", "source": "usage" },
+  { "group": "消费与计价", "name": "文本、缓存与模型费用", "unit": "token / USD", "access": "管理员 Usage 可读；按精确模型、服务层级、Batch 和配置单价估算", "formula": "普通输入×输入价 + 缓存命中×命中价 + 30m/12h 写入×对应写入价 + 输出×输出价", "note": "各 token 分类互斥；价格按每百万 token 换算。缺分类、未知模型、非文本或未识别价格档位时不能声称完整计价。", "source": "prices" },
+  { "group": "消费与计价", "name": "图像、音频、嵌入、搜索与存储", "unit": "各接口原始用量单位", "access": "研究按公开组织 Usage 地址逐类读取；以各项实际响应状态为准", "formula": "各收费项使用独立计费单位和价格；未计价部分单独保留", "note": "未返回用量不等于确认免费。不同单位不相加，不能只用 completions token 代表所有 API 费用。", "source": "usage" },
+  { "group": "限额与产品边界", "name": "Codex 主、次时间窗口", "unit": "% / 时间", "access": "复用本机 Codex app-server account/rateLimits/read", "formula": "窗口剩余百分比 = 100 − usedPercent；按实际 windowDurationMins 标注窗口", "note": "窗口按各自 resetsAt 重置。不能与 API 美元相加，也不按 5 小时/7 天硬编码所有窗口类型。", "source": "codex" },
+  { "group": "限额与产品边界", "name": "Codex / ChatGPT 内部 credits", "unit": "产品内部单位", "access": "仅展示 app-server 本次实际返回的 credits 字段，未返回则未知", "formula": "保留原单位和作用域，不换算成 API 美元", "note": "订阅 API 赠送与登录 Codex 的使用额度分别管理。余额字段同名不代表同一个账本。", "source": "codex" },
+  { "group": "限额与产品边界", "name": "RPM / TPM 与模型速率限制", "unit": "请求/分钟、token/分钟等", "access": "按已发现项目读取管理接口；展示采集范围与实际 HTTP 状态", "formula": "这是速率上限；仅有上限时无法计算当前剩余速率额度", "note": "必须按项目和模型分开。达到速率上限与美元余额耗尽含义不同。", "source": "rates" },
+  { "group": "限额与产品边界", "name": "组织 / 项目月度支出上限", "unit": "USD / 月", "access": "读取组织及选中项目的 spend_limit 查询地址；返回失败时保留未知", "formula": "预算余量 = 配置上限 − 同预算周期内已跟踪支出（数据齐全时）", "note": "通知阈值与强制上限不同；预算周期与订阅赠送周期不一定相同。预算不是可抵扣信用余额。", "source": "limits" }
+]

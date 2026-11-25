@@ -1,0 +1,37 @@
+{
+  "cycleConfig": "cycle-balance.config.json",
+  "outputDirectory": "output/quota-overview",
+  "readCodex": true,
+  "readApiLimits": true,
+  "maxProjects": 2,
+  "ratePageSize": 100,
+  "maxRatePages": 5,
+  "simulationDefaults": { "purchaseUsd": 20, "spendUsd": 100, "purchaseExpiryMonths": 12 },
+  "auxiliaryUsage": [
+    { "label": "图像生成", "path": "/v1/organization/usage/images" },
+    { "label": "音频生成", "path": "/v1/organization/usage/audio_speeches" },
+    { "label": "音频转写", "path": "/v1/organization/usage/audio_transcriptions" },
+    { "label": "向量嵌入", "path": "/v1/organization/usage/embeddings" },
+    { "label": "向量存储", "path": "/v1/organization/usage/vector_stores" },
+    { "label": "代码解释器", "path": "/v1/organization/usage/code_interpreter_sessions" },
+    { "label": "结构化决策", "path": "/v1/organization/usage/decisions" },
+    { "label": "内容审核", "path": "/v1/organization/usage/moderations" },
+    { "label": "文件搜索", "path": "/v1/organization/usage/file_search_calls" },
+    { "label": "网页搜索", "path": "/v1/organization/usage/web_search_calls" }
+  ],
+  "limitPaths": {
+    "projects": "/v1/organization/projects",
+    "organizationSpend": "/v1/organization/spend_limit",
+    "projectRates": "/v1/organization/projects/{project}/rate_limits",
+    "projectSpend": "/v1/organization/projects/{project}/spend_limit"
+  },
+  "sources": {
+    "credits": "https://help.openai.com/en/articles/20001626-api-credits-benefit-for-eligible-chatgpt-subscriptions",
+    "purchased": "https://help.openai.com/en/articles/8264644-setting-up-and-managing-prepaid-api-billing",
+    "usage": "https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage",
+    "prices": "https://developers.openai.com/api/docs/pricing",
+    "limits": "https://developers.openai.com/api/docs/guides/spend-limits",
+    "rates": "https://developers.openai.com/api/docs/guides/rate-limits",
+    "codex": "https://learn.chatgpt.com/docs/app-server"
+  }
+}

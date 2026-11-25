@@ -1,0 +1,52 @@
+{
+  "connectionConfig": "billing-probe.config.json",
+  "cycle": {
+    "start": "2026-11-19T00:00:00Z",
+    "end": "2026-12-19T00:00:00Z",
+    "boundariesConfirmed": false,
+    "grantedUsd": 99,
+    "otherCreditChangesUsd": 0,
+    "otherCreditChangesConfirmed": false,
+    "source": "用户提供：Nov 19, 2026 / US$98.57 available of US$99.00 / Dec 19, 2026。仅确认日期，UTC 零点为研究假设。"
+  },
+  "webReference": {
+    "balanceUsd": 98.57,
+    "observedAt": null,
+    "source": "用户提供的额度记录；不是与 API 查询同步的快照。"
+  },
+  "bucketLimit": 31,
+  "groupBy": {
+    "costs": ["line_item"],
+    "usage": ["model", "service_tier", "batch"]
+  },
+  "prices": [
+    {
+      "model": "gpt-6.2-sol",
+      "serviceTier": "default",
+      "batch": false,
+      "inputUsdPerMillion": 2,
+      "cachedInputUsdPerMillion": 0.1,
+      "cacheWrite30mUsdPerMillion": 2.5,
+      "cacheWrite12hUsdPerMillion": 5,
+      "outputUsdPerMillion": 10,
+      "contextPricing": "short",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "verifiedOn": "2026-11-25"
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "serviceTier": "default",
+      "batch": false,
+      "inputUsdPerMillion": 2,
+      "cachedInputUsdPerMillion": 0.1,
+      "cacheWrite30mUsdPerMillion": 2.5,
+      "cacheWrite12hUsdPerMillion": 5,
+      "outputUsdPerMillion": 10,
+      "contextPricing": "short",
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "verifiedOn": "2026-11-25"
+    }
+  ],
+  "outputJson": "output/cycle-balance.json",
+  "outputText": "output/cycle-balance.txt"
+}

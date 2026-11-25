@@ -11,5 +11,7 @@ pnpm-debug.log*
 spec
 PACKAGING.md
 .vscode/
+**/local_config/*
+!**/local_config/.gitkeep
 
 .AGENTS.md

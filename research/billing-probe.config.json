@@ -1,0 +1,34 @@
+{
+  "keyFile": "local_config/admin_key.txt",
+  "apiOrigin": "https://api.openai.com",
+  "lookbackDays": 30,
+  "timeoutMs": 20000,
+  "maxPages": 5,
+  "outputFile": "output/billing-probe.json",
+  "endpoints": [
+    {
+      "name": "organization-costs",
+      "path": "/v1/organization/costs",
+      "kind": "costs",
+      "documented": true
+    },
+    {
+      "name": "organization-completions-usage",
+      "path": "/v1/organization/usage/completions",
+      "kind": "usage",
+      "documented": true
+    },
+    {
+      "name": "dashboard-credit-grants",
+      "path": "/dashboard/billing/credit_grants",
+      "kind": "billing",
+      "documented": false
+    },
+    {
+      "name": "dashboard-credit-grants-v1",
+      "path": "/v1/dashboard/billing/credit_grants",
+      "kind": "billing",
+      "documented": false
+    }
+  ]
+}
